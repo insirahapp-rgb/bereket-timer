@@ -1159,10 +1159,22 @@
                                 { headers: { 'User-Agent': 'BereketTimer/1.0' } }
                             );
                             const geoData = await geoResponse.json();
-                            // Öncelik: ilçe > kasaba > şehir > mahalle > il
-                            const cityName = geoData.address?.district || geoData.address?.town || 
-                                           geoData.address?.city || geoData.address?.suburb ||
-                                           geoData.address?.province || 'Konumunuz';
+                            
+                            // İlçe ve İl bilgisini al
+                            const district = geoData.address?.district || geoData.address?.town || geoData.address?.county;
+                            const province = geoData.address?.province || geoData.address?.state || geoData.address?.city;
+                            
+                            let cityName = '';
+                            if (district && province && district !== province) {
+                                cityName = `${district}, ${province}`;
+                            } else if (district) {
+                                cityName = district;
+                            } else if (province) {
+                                cityName = province;
+                            } else {
+                                cityName = currentLang === 'en' ? 'Your Location' : 'Konumunuz';
+                            }
+                            
                             state.location.city = cityName;
                             locationText.textContent = cityName;
                         } catch (e) {
