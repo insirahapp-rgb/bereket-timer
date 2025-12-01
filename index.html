@@ -1114,30 +1114,11 @@
                     state.location.latitude = lat;
                     state.location.longitude = lng;
                     
-                    // Şehir adını bul
-                    try {
-                        const response = await fetch(
-                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=${currentLang}`,
-                            { headers: { 'User-Agent': 'BereketTimer/1.0' } }
-                        );
-                        const data = await response.json();
-                        const city = data.address?.city || data.address?.town || 
-                                    data.address?.province || data.address?.state || 
-                                    (currentLang === 'en' ? 'Your Location' : 'Konumunuz');
-                        state.location.city = city;
-                        locationText.textContent = city;
-                    } catch (e) {
-                        locationText.textContent = currentLang === 'en' ? 'Your Location' : 'Konumunuz';
-                    }
-                    
                     locationStatus.classList.add('active');
                     prayerBar.classList.remove('hidden');
                     
-                    // Namaz vakitlerini hesapla
-                    calculatePrayerTimesLocally(lat, lng);
-                    updatePrayerTimesUI();
-                    highlightCurrentPrayer();
-                    startPrayerCheck();
+                    // vakit.vercel.app API'den konum ve vakitleri al
+                    await fetchPrayerTimesFromAPI(lat, lng);
                 },
                 (error) => {
                     // Başarısız - konum alınamadı
@@ -1146,6 +1127,62 @@
                 },
                 { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
             );
+        }
+
+        async function fetchPrayerTimesFromAPI(lat, lng) {
+            const locationText = document.getElementById('locationText');
+            
+            try {
+                // Önce yakın yeri bul (şehir/ilçe adı için)
+                const placeResponse = await fetch(
+                    `https://vakit.vercel.app/api/nearByPlaces?lat=${lat}&lng=${lng}&lang=${currentLang === 'en' ? 'en' : 'tr'}`
+                );
+                const placeData = await placeResponse.json();
+                
+                if (placeData && placeData.length > 0) {
+                    const place = placeData[0];
+                    state.location.city = place.name || place.city || 'Konum';
+                    state.location.placeId = place.id;
+                    locationText.textContent = state.location.city;
+                }
+                
+                // Namaz vakitlerini al
+                const today = new Date();
+                const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                const timezoneOffset = -today.getTimezoneOffset();
+                
+                const timesResponse = await fetch(
+                    `https://vakit.vercel.app/api/timesForGPS?lat=${lat}&lng=${lng}&date=${dateStr}&days=1&timezoneOffset=${timezoneOffset}&calculationMethod=Turkey`
+                );
+                const timesData = await timesResponse.json();
+                
+                if (timesData && timesData.times && timesData.times.length > 0) {
+                    const times = timesData.times[0];
+                    state.prayerTimes = {
+                        fajr: times.fajr || times.imsak,
+                        sunrise: times.sunrise || times.gunes,
+                        dhuhr: times.dhuhr || times.ogle,
+                        asr: times.asr || times.ikindi,
+                        maghrib: times.maghrib || times.aksam,
+                        isha: times.isha || times.yatsi
+                    };
+                    
+                    updatePrayerTimesUI();
+                    highlightCurrentPrayer();
+                    startPrayerCheck();
+                } else {
+                    throw new Error('Vakit verisi alınamadı');
+                }
+                
+            } catch (error) {
+                console.log('API hatası, yerel hesaplamaya geçiliyor:', error.message);
+                // Fallback: Yerel hesaplama
+                locationText.textContent = (currentLang === 'en' ? 'Location' : 'Konum') + ' (Hesaplama)';
+                calculatePrayerTimesLocally(lat, lng);
+                updatePrayerTimesUI();
+                highlightCurrentPrayer();
+                startPrayerCheck();
+            }
         }
 
         function hidePrayerTimes() {
