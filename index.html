@@ -1159,8 +1159,9 @@
                                 { headers: { 'User-Agent': 'BereketTimer/1.0' } }
                             );
                             const geoData = await geoResponse.json();
-                            const cityName = geoData.address?.suburb || geoData.address?.town || 
-                                           geoData.address?.district || geoData.address?.city || 
+                            // Öncelik: ilçe > kasaba > şehir > mahalle > il
+                            const cityName = geoData.address?.district || geoData.address?.town || 
+                                           geoData.address?.city || geoData.address?.suburb ||
                                            geoData.address?.province || 'Konumunuz';
                             state.location.city = cityName;
                             locationText.textContent = cityName;
