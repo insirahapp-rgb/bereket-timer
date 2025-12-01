@@ -1098,16 +1098,13 @@
             const locationStatus = document.getElementById('locationStatus');
             const prayerBar = document.getElementById('prayerBar');
             
-            // Geolocation desteklenmiyor mu?
             if (!navigator.geolocation) {
                 hidePrayerTimes();
                 return;
             }
             
-            // Konum almayı dene
             navigator.geolocation.getCurrentPosition(
                 async (position) => {
-                    // Başarılı - konum alındı
                     const lat = position.coords.latitude;
                     const lng = position.coords.longitude;
                     
@@ -1117,11 +1114,9 @@
                     locationStatus.classList.add('active');
                     prayerBar.classList.remove('hidden');
                     
-                    // vakit.vercel.app API'den konum ve vakitleri al
                     await fetchPrayerTimesFromAPI(lat, lng);
                 },
                 (error) => {
-                    // Başarısız - konum alınamadı
                     console.log('Konum alınamadı:', error.message);
                     hidePrayerTimes();
                 },
@@ -1131,55 +1126,58 @@
 
         async function fetchPrayerTimesFromAPI(lat, lng) {
             const locationText = document.getElementById('locationText');
-            const CORS_PROXY = 'https://corsproxy.io/?';
             
             try {
-                // Önce yakın yeri bul (şehir/ilçe adı için)
-                const placeUrl = `https://vakit.vercel.app/api/nearByPlaces?lat=${lat}&lng=${lng}&lang=${currentLang === 'en' ? 'en' : 'tr'}`;
-                const placeResponse = await fetch(CORS_PROXY + encodeURIComponent(placeUrl));
-                const placeData = await placeResponse.json();
-                
-                let placeName = currentLang === 'en' ? 'Your Location' : 'Konumunuz';
-                
-                if (placeData && placeData.length > 0) {
-                    const place = placeData[0];
-                    placeName = place.name || place.city || placeName;
-                    state.location.city = placeName;
-                    state.location.placeId = place.id;
-                }
-                
-                locationText.textContent = placeName;
-                
-                // Namaz vakitlerini al
+                // Aladhan API - CORS destekli, Diyanet metodu (13 = Turkey)
                 const today = new Date();
-                const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                const timezoneOffset = -today.getTimezoneOffset();
+                const timestamp = Math.floor(today.getTime() / 1000);
                 
-                const timesUrl = `https://vakit.vercel.app/api/timesForGPS?lat=${lat}&lng=${lng}&date=${dateStr}&days=1&timezoneOffset=${timezoneOffset}&calculationMethod=Turkey`;
-                const timesResponse = await fetch(CORS_PROXY + encodeURIComponent(timesUrl));
-                const timesData = await timesResponse.json();
+                const response = await fetch(
+                    `https://api.aladhan.com/v1/timings/${timestamp}?latitude=${lat}&longitude=${lng}&method=13`
+                );
+                const data = await response.json();
                 
-                if (timesData && timesData.times && timesData.times.length > 0) {
-                    const times = timesData.times[0];
+                if (data.code === 200 && data.data && data.data.timings) {
+                    const timings = data.data.timings;
+                    
                     state.prayerTimes = {
-                        fajr: times.fajr || times.imsak,
-                        sunrise: times.sunrise || times.gunes,
-                        dhuhr: times.dhuhr || times.ogle,
-                        asr: times.asr || times.ikindi,
-                        maghrib: times.maghrib || times.aksam,
-                        isha: times.isha || times.yatsi
+                        fajr: timings.Fajr.substring(0, 5),
+                        sunrise: timings.Sunrise.substring(0, 5),
+                        dhuhr: timings.Dhuhr.substring(0, 5),
+                        asr: timings.Asr.substring(0, 5),
+                        maghrib: timings.Maghrib.substring(0, 5),
+                        isha: timings.Isha.substring(0, 5)
                     };
+                    
+                    // Şehir adını al
+                    const meta = data.data.meta;
+                    if (meta && meta.timezone) {
+                        // Reverse geocoding ile şehir adı al
+                        try {
+                            const geoResponse = await fetch(
+                                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=tr`,
+                                { headers: { 'User-Agent': 'BereketTimer/1.0' } }
+                            );
+                            const geoData = await geoResponse.json();
+                            const cityName = geoData.address?.suburb || geoData.address?.town || 
+                                           geoData.address?.district || geoData.address?.city || 
+                                           geoData.address?.province || 'Konumunuz';
+                            state.location.city = cityName;
+                            locationText.textContent = cityName;
+                        } catch (e) {
+                            locationText.textContent = currentLang === 'en' ? 'Your Location' : 'Konumunuz';
+                        }
+                    }
                     
                     updatePrayerTimesUI();
                     highlightCurrentPrayer();
                     startPrayerCheck();
                 } else {
-                    throw new Error('Vakit verisi alınamadı');
+                    throw new Error('API yanıtı geçersiz');
                 }
                 
             } catch (error) {
-                console.log('API hatası, yerel hesaplamaya geçiliyor:', error.message);
-                // Fallback: Yerel hesaplama
+                console.log('API hatası:', error.message);
                 locationText.textContent = (currentLang === 'en' ? 'Location' : 'Konum') + ' (Hesaplama)';
                 calculatePrayerTimesLocally(lat, lng);
                 updatePrayerTimesUI();
@@ -1189,7 +1187,6 @@
         }
 
         function hidePrayerTimes() {
-            // Namaz vakitlerini gizle
             document.getElementById('prayerBar').classList.add('hidden');
             document.getElementById('locationStatus').classList.add('hidden');
         }
