@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="tr" id="htmlRoot">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bereket Timer - Islamic Pomodoro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Sans+Arabic:wght@400;600&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-dark: #1a1a2e;
+            --primary-mid: #16213e;
+            --accent-gold: #d4af37;
+            --accent-gold-light: #f4e4bc;
+            --accent-emerald: #0d7377;
+            --accent-emerald-light: #14a3a8;
+            --text-light: #e8e8e8;
+            --text-muted: #a0a0a0;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --shadow-gold: rgba(212, 175, 55, 0.3);
+            --success: #27ae60;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Noto Sans Arabic', 'Amiri', sans-serif;
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-mid) 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: var(--text-light);
+            overflow-x: hidden;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 30L30 60L0 30z' fill='none' stroke='%23d4af37' stroke-width='0.5' opacity='0.1'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+        /* Language Selector */
+        .lang-selector { display: flex; gap: 4px; background: var(--glass-bg); border-radius: 20px; padding: 3px; border: 1px solid var(--glass-border); }
+        .lang-btn { padding: 4px 10px; border: none; background: transparent; color: var(--text-muted); font-size: 0.75rem; cursor: pointer; border-radius: 16px; transition: all 0.3s ease; }
+        .lang-btn.active { background: var(--accent-gold); color: var(--primary-dark); font-weight: 600; }
+        .lang-btn:hover:not(.active) { color: var(--text-light); }
+        .app-container { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 80px; }
+        .header { background: var(--glass-bg); backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border); padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .app-title { font-family: 'Scheherazade New', serif; font-size: 1.8rem; color: var(--accent-gold); text-shadow: 0 0 20px var(--shadow-gold); }
+        .hijri-date { text-align: right; }
+        .hijri-date .arabic { font-family: 'Scheherazade New', serif; font-size: 1.1rem; color: var(--accent-gold-light); }
+        .hijri-date .gregorian { font-size: 0.75rem; color: var(--text-muted); }
+        .prayer-bar { display: flex; justify-content: space-between; background: rgba(13, 115, 119, 0.2); border-radius: 12px; padding: 10px 8px; border: 1px solid rgba(13, 115, 119, 0.3); }
+        .prayer-time { text-align: center; flex: 1; padding: 4px 2px; border-radius: 8px; transition: all 0.3s ease; }
+        .prayer-time.active { background: var(--accent-emerald); box-shadow: 0 0 15px rgba(13, 115, 119, 0.5); }
+        .prayer-time.next { background: rgba(212, 175, 55, 0.2); border: 1px solid var(--accent-gold); }
+        .prayer-time .name { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 2px; }
+        .prayer-time.active .name, .prayer-time.next .name { color: var(--text-light); }
+        .prayer-time .time { font-size: 0.8rem; font-weight: 600; }
+        .location-status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
+        .location-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #e74c3c; }
+        .location-status.active .dot { background: var(--success); }
+        .main-content { padding: 20px; }
+        .timer-section { text-align: center; margin-bottom: 24px; }
+        .timer-container { position: relative; width: 280px; height: 280px; margin: 0 auto 20px; }
+        .timer-ring { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .timer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+        .timer-ring circle { fill: none; stroke-width: 8; }
+        .timer-ring .bg { stroke: var(--glass-border); }
+        .timer-ring .progress { stroke: var(--accent-gold); stroke-linecap: round; transition: stroke-dashoffset 1s linear; filter: drop-shadow(0 0 10px var(--shadow-gold)); }
+        .timer-ring .progress.break { stroke: var(--accent-emerald); }
+        .timer-display { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+        .timer-mode { font-size: 0.85rem; color: var(--accent-gold); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 2px; }
+        .timer-mode.break { color: var(--accent-emerald-light); }
+        .timer-time { font-family: 'Amiri', serif; font-size: 4rem; font-weight: 700; line-height: 1; margin-bottom: 8px; }
+        .timer-session { font-size: 0.75rem; color: var(--text-muted); }
+        .timer-controls { display: flex; justify-content: center; gap: 16px; }
+        .timer-btn { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--accent-gold); background: var(--glass-bg); color: var(--accent-gold); font-size: 1.5rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; }
+        .timer-btn:hover { background: var(--accent-gold); color: var(--primary-dark); }
+        .timer-btn.primary { width: 80px; height: 80px; background: linear-gradient(135deg, var(--accent-gold), #b8962e); color: var(--primary-dark); border: none; font-size: 2rem; }
+        .timer-btn.primary:hover { transform: scale(1.05); box-shadow: 0 0 30px var(--shadow-gold); }
+        .wisdom-card { background: var(--glass-bg); backdrop-filter: blur(10px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; margin-bottom: 24px; position: relative; overflow: hidden; }
+        .wisdom-card::before { content: '❝'; position: absolute; top: -10px; left: 10px; font-size: 4rem; color: var(--accent-gold); opacity: 0.2; }
+        .wisdom-type { display: inline-block; background: var(--accent-emerald); color: white; font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .wisdom-text { font-family: 'Scheherazade New', serif; font-size: 1.2rem; line-height: 1.8; color: var(--text-light); margin-bottom: 12px; }
+        .wisdom-source { font-size: 0.8rem; color: var(--accent-gold); text-align: right; }
+        .wisdom-meaning { font-size: 0.9rem; color: var(--text-muted); margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--glass-border); line-height: 1.6; }
+        .section-title { font-family: 'Scheherazade New', serif; font-size: 1.3rem; color: var(--accent-gold); margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+        .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, var(--accent-gold), transparent); }
+        .deeds-list { margin-bottom: 24px; }
+        .deed-item { display: flex; align-items: center; gap: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; transition: all 0.3s ease; }
+        .deed-item.completed { border-color: var(--success); background: rgba(39, 174, 96, 0.1); }
+        .deed-checkbox { width: 24px; height: 24px; border: 2px solid var(--accent-gold); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; flex-shrink: 0; }
+        .deed-item.completed .deed-checkbox { background: var(--success); border-color: var(--success); }
+        .deed-checkbox::after { content: '✓'; color: white; opacity: 0; transition: opacity 0.3s ease; }
+        .deed-item.completed .deed-checkbox::after { opacity: 1; }
+        .deed-content { flex: 1; }
+        .deed-title { font-size: 0.95rem; margin-bottom: 2px; }
+        .deed-item.completed .deed-title { text-decoration: line-through; opacity: 0.7; }
+        .deed-reward { font-size: 0.75rem; color: var(--accent-emerald-light); }
+        .deed-type { font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; background: rgba(212, 175, 55, 0.2); color: var(--accent-gold); }
+        .add-deed-btn { width: 100%; padding: 14px; border: 2px dashed var(--glass-border); border-radius: 12px; background: transparent; color: var(--text-muted); font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease; }
+        .add-deed-btn:hover { border-color: var(--accent-gold); color: var(--accent-gold); }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+        .stat-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px 12px; text-align: center; }
+        .stat-value { font-family: 'Amiri', serif; font-size: 1.8rem; font-weight: 700; color: var(--accent-gold); }
+        .stat-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+        .special-day-alert { background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(13, 115, 119, 0.2)); border: 1px solid var(--accent-gold); border-radius: 16px; padding: 16px; margin-bottom: 24px; display: none; }
+        .special-day-alert.visible { display: block; animation: fadeIn 0.5s ease; }
+        .special-day-title { font-family: 'Scheherazade New', serif; font-size: 1.1rem; color: var(--accent-gold); margin-bottom: 8px; }
+        .special-day-content { font-size: 0.85rem; color: var(--text-light); line-height: 1.6; }
+        .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .modal.visible { display: flex; animation: fadeIn 0.3s ease; }
+        .modal-content { background: linear-gradient(135deg, var(--primary-dark), var(--primary-mid)); border: 2px solid var(--accent-gold); border-radius: 24px; padding: 24px; max-width: 380px; width: 100%; max-height: 80vh; overflow-y: auto; }
+        .modal-header { text-align: center; margin-bottom: 20px; }
+        .modal-title { font-family: 'Scheherazade New', serif; font-size: 1.5rem; color: var(--accent-gold); }
+        .friday-checklist { list-style: none; }
+        .friday-checklist li { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--glass-border); }
+        .friday-checklist li:last-child { border-bottom: none; }
+        .friday-checklist .icon { font-size: 1.2rem; }
+        .friday-checklist .text { font-size: 0.9rem; line-height: 1.5; }
+        .friday-checklist .source { font-size: 0.75rem; color: var(--accent-gold); display: block; margin-top: 4px; }
+        .modal-btn { width: 100%; padding: 14px; margin-top: 20px; background: var(--accent-emerald); color: white; border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; }
+        .modal-btn:hover { background: var(--accent-emerald-light); }
+        .prayer-modal-icon { font-size: 4rem; margin-bottom: 16px; text-align: center; }
+        .prayer-modal-message { font-size: 0.9rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px; padding: 16px; background: var(--glass-bg); border-radius: 12px; text-align: center; }
+        .bottom-nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: var(--primary-dark); border-top: 1px solid var(--glass-border); display: flex; justify-content: space-around; padding: 12px 0; z-index: 100; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.7rem; cursor: pointer; padding: 4px 12px; }
+        .nav-item.active { color: var(--accent-gold); }
+        .nav-item .icon { font-size: 1.3rem; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; color: var(--text-light); font-size: 1rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent-gold); }
+        .form-group select option { background: var(--primary-dark); }
+        .modal-buttons { display: flex; gap: 12px; margin-top: 20px; }
+        .modal-buttons button { flex: 1; padding: 12px; border-radius: 10px; font-size: 0.95rem; cursor: pointer; }
+        .cancel-btn { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-light); }
+        .save-btn { background: var(--accent-gold); border: none; color: var(--primary-dark); font-weight: 600; }
+        .panel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--primary-dark); z-index: 200; transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto; padding: 20px; padding-bottom: 100px; }
+        .panel.visible { transform: translateX(0); }
+        .panel-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+        .panel-back { width: 40px; height: 40px; border-radius: 50%; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-light); font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .panel-title { font-family: 'Scheherazade New', serif; font-size: 1.5rem; color: var(--accent-gold); }
+        .settings-section { margin-bottom: 24px; }
+        .settings-section-title { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; margin-bottom: 10px; }
+        .setting-input { width: 60px; padding: 8px; background: var(--primary-dark); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-light); text-align: center; font-size: 0.9rem; }
+        .setting-unit { font-size: 0.8rem; color: var(--text-muted); margin-left: 8px; }
+        .toggle { width: 50px; height: 26px; background: var(--glass-bg); border-radius: 13px; position: relative; cursor: pointer; }
+        .toggle.active { background: var(--accent-emerald); }
+        .toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: all 0.3s ease; }
+        .toggle.active::after { left: 26px; }
+        .hijri-calendar { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; margin-top: 20px; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .calendar-month { font-family: 'Scheherazade New', serif; font-size: 1.3rem; color: var(--accent-gold); }
+        .calendar-month-greg { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+        .calendar-nav { display: flex; gap: 10px; }
+        .calendar-nav button { width: 36px; height: 36px; border-radius: 50%; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-light); cursor: pointer; }
+        .calendar-nav button:hover { background: var(--accent-gold); color: var(--primary-dark); }
+        .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px; }
+        .calendar-weekdays span { text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 8px 0; }
+        .calendar-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-day { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.9rem; border-radius: 8px; cursor: pointer; padding: 2px; }
+        .calendar-day:hover { background: var(--glass-border); }
+        .calendar-day.today { background: var(--accent-gold); color: var(--primary-dark); font-weight: 600; }
+        .calendar-day.today .gregorian-small { color: var(--primary-dark); opacity: 0.7; }
+        .calendar-day.special { border: 1px solid var(--accent-emerald); color: var(--accent-emerald-light); }
+        .calendar-day.empty { visibility: hidden; }
+        .calendar-day .hijri-day { font-weight: 600; line-height: 1.2; }
+        .calendar-day .gregorian-small { font-size: 0.55rem; color: var(--text-muted); line-height: 1; margin-top: 1px; }
+        .special-days-list { margin-top: 24px; }
+        .special-days-list h3 { font-family: 'Scheherazade New', serif; font-size: 1.1rem; color: var(--accent-gold); margin-bottom: 12px; }
+        .special-day-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; margin-bottom: 8px; }
+        .special-day-item .sicon { font-size: 1.5rem; }
+        .special-day-item .info h4 { font-size: 0.95rem; margin-bottom: 2px; }
+        .special-day-item .info p { font-size: 0.75rem; color: var(--text-muted); }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--accent-emerald); color: white; padding: 14px 24px; border-radius: 12px; font-size: 0.9rem; z-index: 1001; transition: transform 0.3s ease; max-width: 90%; text-align: center; }
+        .toast.visible { transform: translateX(-50%) translateY(0); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Premium Stilleri */
+        .premium-badge { display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(135deg, #d4af37 0%, #9b59b6 100%); color: white; font-size: 0.65rem; padding: 3px 8px; border-radius: 10px; font-weight: 600; }
+        .premium-badge::before { content: '👑'; font-size: 0.7rem; }
+        .ad-banner { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 12px; padding: 12px; margin-bottom: 16px; text-align: center; min-height: 50px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .ad-banner.hidden { display: none; }
+        .ad-placeholder { color: var(--text-muted); font-size: 0.75rem; }
+        .remove-ads-btn { background: linear-gradient(135deg, #d4af37, #9b59b6); color: white; border: none; padding: 6px 12px; border-radius: 15px; font-size: 0.7rem; cursor: pointer; }
+        .donation-section { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px; margin: 24px 0; text-align: center; }
+        .donation-title { font-family: 'Scheherazade New', serif; font-size: 1.2rem; color: var(--accent-gold); margin-bottom: 8px; }
+        .donation-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; }
+        .donation-amounts { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 16px; }
+        .donation-btn { padding: 10px 20px; border: 2px solid var(--accent-gold); border-radius: 25px; background: transparent; color: var(--accent-gold); font-size: 0.9rem; cursor: pointer; transition: all 0.3s ease; }
+        .donation-btn:hover, .donation-btn.selected { background: var(--accent-gold); color: var(--primary-dark); }
+        .donate-submit-btn { background: var(--accent-emerald); color: white; border: none; padding: 12px 24px; border-radius: 12px; font-size: 0.95rem; cursor: pointer; width: 100%; margin-top: 10px; }
+        .donor-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(39, 174, 96, 0.2); color: var(--success); padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; margin-top: 12px; }
+        .premium-modal-icon { font-size: 4rem; text-align: center; margin-bottom: 16px; }
+        .premium-price { font-size: 2.5rem; font-weight: 700; color: var(--accent-gold); text-align: center; }
+        .premium-price-sub { font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+        .premium-features { text-align: left; margin: 20px 0; }
+        .premium-feature { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+        .premium-feature:last-child { border-bottom: none; }
+        .premium-feature .check { color: var(--success); font-size: 1.2rem; }
+        .modal-btn.premium { background: linear-gradient(135deg, #d4af37, #9b59b6); }
+        .modal-btn.secondary { background: transparent; border: 1px solid var(--glass-border); margin-top: 10px; }
+        .theme-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+        .theme-card { background: var(--glass-bg); border: 2px solid var(--glass-border); border-radius: 12px; padding: 16px; text-align: center; cursor: pointer; transition: all 0.3s ease; position: relative; }
+        .theme-card.active { border-color: var(--accent-gold); }
+        .theme-card.locked { opacity: 0.6; }
+        .theme-card.locked::after { content: '🔒'; position: absolute; top: 8px; right: 8px; }
+        .theme-preview { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 8px; }
+        .theme-name { font-size: 0.85rem; color: var(--text-light); }
+        .theme-kabe { --primary-dark: #1a1a1a; --primary-mid: #2d2d2d; --accent-gold: #c9a227; }
+        .theme-medine { --primary-dark: #0a2e1a; --primary-mid: #0d4025; --accent-gold: #7cb342; --accent-emerald: #2e7d32; }
+        .theme-aksa { --primary-dark: #1a237e; --primary-mid: #283593; --accent-gold: #ffd54f; --accent-emerald: #42a5f5; }
+        .add-deed-btn.limited::after { content: ' (5 hak)'; font-size: 0.75rem; color: var(--text-muted); }
+        .add-deed-btn.premium-locked { opacity: 0.7; }
+        .add-deed-btn.premium-locked::after { content: ' 👑'; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <div class="header-top">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h1 class="app-title">بركة</h1>
+                    <span class="premium-badge" id="premiumBadge" style="display: none;">Premium</span>
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                    <div class="lang-selector">
+                        <button class="lang-btn active" data-lang="tr" onclick="setLanguage('tr')">TR</button>
+                        <button class="lang-btn" data-lang="en" onclick="setLanguage('en')">EN</button>
+                    </div>
+                    <div class="hijri-date">
+                        <div class="arabic" id="hijriDate">6 Cemâziyelâhir 1447</div>
+                        <div class="gregorian" id="gregorianDate">25 Kasım 2024</div>
+                    </div>
+                </div>
+            </div>
+            <div class="prayer-bar" id="prayerBar">
+                <div class="prayer-time" data-prayer="fajr"><div class="name" data-i18n="prayer_fajr">İmsak</div><div class="time" id="fajrTime">--:--</div></div>
+                <div class="prayer-time" data-prayer="sunrise"><div class="name" data-i18n="prayer_sunrise">Güneş</div><div class="time" id="sunriseTime">--:--</div></div>
+                <div class="prayer-time" data-prayer="dhuhr"><div class="name" data-i18n="prayer_dhuhr">Öğle</div><div class="time" id="dhuhrTime">--:--</div></div>
+                <div class="prayer-time" data-prayer="asr"><div class="name" data-i18n="prayer_asr">İkindi</div><div class="time" id="asrTime">--:--</div></div>
+                <div class="prayer-time" data-prayer="maghrib"><div class="name" data-i18n="prayer_maghrib">Akşam</div><div class="time" id="maghribTime">--:--</div></div>
+                <div class="prayer-time" data-prayer="isha"><div class="name" data-i18n="prayer_isha">Yatsı</div><div class="time" id="ishaTime">--:--</div></div>
+            </div>
+            <div class="location-status" id="locationStatus"><span class="dot"></span><span id="locationText" data-i18n="getting_location">Konum alınıyor...</span></div>
+        </header>
+        <main class="main-content">
+            <!-- Reklam Alanı (Ücretsiz kullanıcılar için) -->
+            <div class="ad-banner" id="adBanner">
+                <span class="ad-placeholder">📢 <span data-i18n="ad_area">Reklam Alanı</span></span>
+                <button class="remove-ads-btn" onclick="showPremiumModal()" data-i18n="remove_ads">Reklamları Kaldır</button>
+            </div>
+            
+            <div class="special-day-alert" id="specialDayAlert">
+                <div class="special-day-title" id="specialDayTitle">🌙 Özel Gün</div>
+                <div class="special-day-content" id="specialDayContent"></div>
+            </div>
+            <section class="timer-section">
+                <div class="timer-container">
+                    <div class="timer-ring">
+                        <svg viewBox="0 0 200 200">
+                            <circle class="bg" cx="100" cy="100" r="90"/>
+                            <circle class="progress" id="timerProgress" cx="100" cy="100" r="90" stroke-dasharray="565.48" stroke-dashoffset="0"/>
+                        </svg>
+                    </div>
+                    <div class="timer-display">
+                        <div class="timer-mode" id="timerMode" data-i18n="work">Çalışma</div>
+                        <div class="timer-time" id="timerTime">25:00</div>
+                        <div class="timer-session" id="timerSession">1. <span data-i18n="session">Oturum</span> / 4</div>
+                    </div>
+                </div>
+                <div class="timer-controls">
+                    <button class="timer-btn" id="resetBtn">↻</button>
+                    <button class="timer-btn primary" id="playPauseBtn">▶</button>
+                    <button class="timer-btn" id="skipBtn">⏭</button>
+                </div>
+            </section>
+            <div class="wisdom-card">
+                <span class="wisdom-type" id="wisdomType">Hadis-i Şerif</span>
+                <p class="wisdom-text" id="wisdomText">"İki nimet vardır ki, insanların çoğu bunlarda aldanmıştır: Sıhhat ve boş vakit."</p>
+                <p class="wisdom-source" id="wisdomSource">— Buhârî, Rikâk, 1</p>
+                <p class="wisdom-meaning" id="wisdomMeaning">Sağlık ve boş vaktin kıymetini bilmek, zamanı verimli kullanmak için en önemli adımdır.</p>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-value" id="todayPomodoros">0</div><div class="stat-label" data-i18n="today_pomodoros">Bugünkü Pomodoro</div></div>
+                <div class="stat-card"><div class="stat-value" id="todayMinutes">0</div><div class="stat-label" data-i18n="minutes_worked">Dakika Çalışma</div></div>
+                <div class="stat-card"><div class="stat-value" id="completedDeeds">0</div><div class="stat-label" data-i18n="completed_deeds">Tamamlanan Amel</div></div>
+            </div>
+            <h2 class="section-title" data-i18n="daily_deeds">Günlük Ameller</h2>
+            <div class="deeds-list" id="deedsList"></div>
+            <button class="add-deed-btn" id="addDeedBtn">+ <span data-i18n="add_new_deed">Yeni Amel Ekle</span></button>
+            
+            <!-- Bağış Bölümü -->
+            <div class="donation-section" id="donationSection">
+                <div class="donation-title">☪️ <span data-i18n="sadaqah_jariyah">Sadaka-i Cariye</span></div>
+                <div class="donation-subtitle" data-i18n="support_app">Bu uygulamanın geliştirilmesine destek olun</div>
+                <div class="donation-amounts">
+                    <button class="donation-btn" data-amount="50">50 TL</button>
+                    <button class="donation-btn" data-amount="100">100 TL</button>
+                    <button class="donation-btn" data-amount="200">200 TL</button>
+                    <button class="donation-btn" data-amount="400">400 TL</button>
+                </div>
+                <button class="donate-submit-btn" id="donateBtn" data-i18n="donate">Bağış Yap</button>
+                <div class="donor-badge" id="donorBadge" style="display: none;">⭐ <span data-i18n="supporter">Destekçi</span></div>
+            </div>
+        </main>
+        <nav class="bottom-nav">
+            <div class="nav-item active" data-page="home"><span class="icon">🕐</span><span data-i18n="nav_timer">Zamanlayıcı</span></div>
+            <div class="nav-item" data-page="calendar"><span class="icon">📅</span><span data-i18n="nav_calendar">Takvim</span></div>
+            <div class="nav-item" data-page="premium" id="premiumNavItem"><span class="icon">👑</span><span>Premium</span></div>
+            <div class="nav-item" data-page="settings"><span class="icon">⚙️</span><span data-i18n="nav_settings">Ayarlar</span></div>
+        </nav>
+    </div>
+
+    <div class="modal" id="prayerAlert">
+        <div class="modal-content">
+            <div class="prayer-modal-icon">🕌</div>
+            <div class="modal-header"><h2 class="modal-title" id="prayerAlertTitle" data-i18n="prayer_time">Namaz Vakti</h2></div>
+            <div class="prayer-modal-message" id="prayerAlertMessage"></div>
+            <button class="modal-btn" onclick="closePrayerAlert()" data-i18n="ok">Tamam</button>
+        </div>
+    </div>
+
+    <div class="modal" id="fridayPrep">
+        <div class="modal-content" style="border-color: var(--accent-emerald);">
+            <div class="modal-header">
+                <div style="font-size: 3rem; margin-bottom: 12px;">🕋</div>
+                <h2 class="modal-title" style="color: var(--accent-emerald-light);" id="fridayPrepTitle">Cuma Hazırlıkları</h2>
+            </div>
+            <ul class="friday-checklist" id="fridayChecklist">
+                <li><span class="icon">🚿</span><div class="text">Cuma günü gusül almak<span class="source">Buhârî, Cum'a, 2</span></div></li>
+                <li><span class="icon">👔</span><div class="text">Temiz ve güzel elbise giymek<span class="source">İbn Mâce, İkâme, 83</span></div></li>
+                <li><span class="icon">🦷</span><div class="text">Misvak kullanmak / diş temizliği<span class="source">Buhârî, Cum'a, 8</span></div></li>
+                <li><span class="icon">🌸</span><div class="text">Güzel koku sürünmek<span class="source">Buhârî, Cum'a, 6</span></div></li>
+                <li><span class="icon">🚶</span><div class="text">Camiye erken gitmek<span class="source">Buhârî, Cum'a, 4</span></div></li>
+                <li><span class="icon">📖</span><div class="text">Kehf Suresi'ni okumak<span class="source">Hâkim, Müstedrek</span></div></li>
+                <li><span class="icon">🤲</span><div class="text">İcabet saatinde dua etmek<span class="source">Buhârî, Cum'a, 37</span></div></li>
+                <li><span class="icon">💫</span><div class="text">Peygamberimize çokça salavât getirmek<span class="source">Ebû Dâvûd, Salât</span></div></li>
+            </ul>
+            <button class="modal-btn" onclick="closeFridayPrep()" id="fridayPrepBtn">Anladım</button>
+        </div>
+    </div>
+
+    <div class="modal" id="addDeedModal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" data-i18n="add_new_deed">Yeni Amel Ekle</h2></div>
+            <div class="form-group"><label data-i18n="deed_name">Amel Adı</label><input type="text" id="deedName" placeholder=""></div>
+            <div class="form-group"><label data-i18n="deed_category">Kategori</label><select id="deedCategory"><option value="ibadet" data-i18n="cat_ibadet">İbadet</option><option value="ilim" data-i18n="cat_ilim">İlim</option><option value="hayir" data-i18n="cat_hayir">Hayır İşleri</option><option value="ahlak" data-i18n="cat_ahlak">Güzel Ahlak</option><option value="dunya" data-i18n="cat_dunya">Dünyevi Hedef</option></select></div>
+            <div class="modal-buttons"><button class="cancel-btn" onclick="closeAddDeedModal()" data-i18n="cancel">İptal</button><button class="save-btn" onclick="saveDeed()" data-i18n="add">Ekle</button></div>
+        </div>
+    </div>
+
+    <div class="panel" id="settingsPanel">
+        <div class="panel-header"><button class="panel-back" onclick="closeSettings()">←</button><h2 class="panel-title" data-i18n="nav_settings">Ayarlar</h2></div>
+        <div class="settings-section">
+            <div class="settings-section-title" data-i18n="pomodoro_durations">Pomodoro Süreleri</div>
+            <div class="setting-item"><span data-i18n="work_duration">Çalışma Süresi</span><div><input type="number" class="setting-input" id="workDuration" value="25" min="1" max="60"><span class="setting-unit" data-i18n="minutes">dk</span></div></div>
+            <div class="setting-item"><span data-i18n="short_break">Kısa Mola</span><div><input type="number" class="setting-input" id="shortBreak" value="5" min="1" max="30"><span class="setting-unit" data-i18n="minutes">dk</span></div></div>
+            <div class="setting-item"><span data-i18n="long_break">Uzun Mola</span><div><input type="number" class="setting-input" id="longBreak" value="15" min="1" max="60"><span class="setting-unit" data-i18n="minutes">dk</span></div></div>
+            <div class="setting-item"><span data-i18n="long_break_interval">Uzun Mola Aralığı</span><div><input type="number" class="setting-input" id="longBreakInterval" value="4" min="2" max="10"><span class="setting-unit" data-i18n="sessions">oturum</span></div></div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title"><span data-i18n="themes">Temalar</span> 👑</div>
+            <div class="theme-grid" id="themeGrid">
+                <div class="theme-card active" data-theme="default" onclick="selectTheme('default')">
+                    <div class="theme-preview" style="background: linear-gradient(135deg, #1a1a2e, #d4af37);"></div>
+                    <div class="theme-name" data-i18n="default_theme">Varsayılan</div>
+                </div>
+                <div class="theme-card locked" data-theme="kabe" onclick="selectTheme('kabe')">
+                    <div class="theme-preview" style="background: linear-gradient(135deg, #1a1a1a, #c9a227);"></div>
+                    <div class="theme-name" data-i18n="theme_kaaba">Kabe</div>
+                </div>
+                <div class="theme-card locked" data-theme="medine" onclick="selectTheme('medine')">
+                    <div class="theme-preview" style="background: linear-gradient(135deg, #0a2e1a, #7cb342);"></div>
+                    <div class="theme-name" data-i18n="theme_madinah">Medine</div>
+                </div>
+                <div class="theme-card locked" data-theme="aksa" onclick="selectTheme('aksa')">
+                    <div class="theme-preview" style="background: linear-gradient(135deg, #1a237e, #ffd54f);"></div>
+                    <div class="theme-name" data-i18n="theme_aqsa">Mescid-i Aksa</div>
+                </div>
+            </div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title" data-i18n="notifications">Bildirimler</div>
+            <div class="setting-item"><span data-i18n="prayer_notification">Namaz Vakti Bildirimi</span><div class="toggle active" id="prayerNotifToggle" onclick="toggleSetting(this)"></div></div>
+            <div class="setting-item"><span data-i18n="sound_notifications">Ses Bildirimleri</span><div class="toggle active" id="soundToggle" onclick="toggleSetting(this)"></div></div>
+            <div class="setting-item"><span data-i18n="friday_reminder">Cuma Hatırlatması</span><div class="toggle active" id="fridayToggle" onclick="toggleSetting(this)"></div></div>
+        </div>
+        <div class="settings-section">
+            <div class="settings-section-title" data-i18n="account">Hesap</div>
+            <div class="setting-item" onclick="showPremiumModal()" style="cursor:pointer;"><span data-i18n="upgrade_premium">Premium'a Yükselt</span><span style="color: var(--accent-gold);">👑</span></div>
+            <div class="setting-item" onclick="restorePurchases()" style="cursor:pointer;"><span data-i18n="restore_purchases">Satın Alımları Geri Yükle</span><span style="color: var(--text-muted);">→</span></div>
+        </div>
+    </div>
+
+    <!-- Premium Modal -->
+    <div class="modal" id="premiumModal">
+        <div class="modal-content">
+            <div class="premium-modal-icon">👑</div>
+            <div class="modal-header"><h2 class="modal-title">Bereket Premium</h2></div>
+            <div class="premium-price"><span id="premiumPrice">490 TL/yıl</span></div>
+            <div class="premium-price-sub" id="premiumPriceSubModal" data-i18n="price_monthly_hint">Ayda $0.42'den az! ☕</div>
+            <div class="premium-features" id="premiumFeaturesModal">
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_adfree">Reklamsız deneyim</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_themes">Özel temalar (Kabe, Medine, Mescid-i Aksa)</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_unlimited_deeds">Sınırsız özel amel ekleme</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_widgets">Gelişmiş widget'lar</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_family">Aile/grup takibi</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_stats">Detaylı istatistikler</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_quran">Kur'an tilaveti sesleri</span></div>
+            </div>
+            <button class="modal-btn premium" onclick="purchasePremium()" data-i18n="upgrade_premium">Premium'a Geç</button>
+            <button class="modal-btn secondary" onclick="closePremiumModal()" data-i18n="later">Daha Sonra</button>
+        </div>
+    </div>
+
+    <!-- Premium Panel -->
+    <div class="panel" id="premiumPanel">
+        <div class="panel-header"><button class="panel-back" onclick="closePremiumPanel()">←</button><h2 class="panel-title">Premium</h2></div>
+        <div style="text-align: center; padding: 20px;">
+            <div style="font-size: 5rem; margin-bottom: 20px;">👑</div>
+            <h2 style="font-family: 'Scheherazade New', serif; font-size: 2rem; color: var(--accent-gold); margin-bottom: 10px;">Bereket Premium</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px;" data-i18n="unlock_features">Tüm özelliklerin kilidini açın</p>
+            <div style="background: var(--glass-bg); border-radius: 20px; padding: 30px; margin-bottom: 24px;">
+                <div style="font-size: 3rem; font-weight: 700; color: var(--accent-gold);" id="premiumPanelPrice">490 TL/yıl</div>
+                <div style="margin-top: 10px; padding: 8px 16px; background: rgba(39, 174, 96, 0.2); border-radius: 20px; display: inline-block;">
+                    <span style="color: var(--success); font-size: 0.85rem;">💰 <span id="premiumPanelMonthly">~41 TL/ay</span></span>
+                </div>
+            </div>
+            <div style="text-align: left; margin-bottom: 30px;">
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_adfree_full">Reklamsız, kesintisiz deneyim</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_themes_full">3 özel tema: Kabe, Medine, Mescid-i Aksa</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_unlimited_deeds">Sınırsız özel amel ekleme</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_widgets_full">Ana ekran widget'ları</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_family_full">Aile/grup amel takibi (5 kişiye kadar)</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_stats_full">Detaylı haftalık/aylık istatistikler</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_quran_full">Kur'an tilaveti ve ezan sesleri</span></div>
+                <div class="premium-feature"><span class="check">✓</span><span data-i18n="pf_support">Öncelikli destek</span></div>
+            </div>
+            <button class="modal-btn premium" onclick="purchasePremium()" style="font-size: 1.1rem; padding: 18px;" id="premiumBtnPanel">✨ <span data-i18n="upgrade_premium">Premium'a Geç</span> - <span id="premiumBtnPrice">490 TL/yıl</span></button>
+            <p style="color: var(--text-muted); font-size: 0.75rem; margin-top: 16px;" data-i18n="cancel_anytime">İstediğiniz zaman iptal edebilirsiniz.</p>
+        </div>
+    </div>
+
+    <div class="panel" id="calendarPanel">
+        <div class="panel-header"><button class="panel-back" onclick="closeCalendar()">←</button><h2 class="panel-title" data-i18n="hijri_calendar">Hicri Takvim</h2></div>
+        <div class="hijri-calendar">
+            <div class="calendar-header"><div><div class="calendar-month" id="calendarMonth">Cemâziyelâhir 1447</div><div class="calendar-month-greg" id="calendarMonthGreg"></div></div><div class="calendar-nav"><button onclick="prevMonth()">‹</button><button onclick="nextMonth()">›</button></div></div>
+            <div class="calendar-weekdays" id="calendarWeekdays"><span>Pzt</span><span>Sal</span><span>Çar</span><span>Per</span><span>Cum</span><span>Cmt</span><span>Paz</span></div>
+            <div class="calendar-days" id="calendarDays"></div>
+        </div>
+        <div class="special-days-list"><h3 data-i18n="upcoming_special_days">Yaklaşan Önemli Günler</h3><div id="upcomingSpecialDays"></div></div>
+    </div>
+
+    <div class="toast" id="toast">Mesaj</div>
+
+    <script>
+        // ==================== INTERNATIONALIZATION (i18n) ====================
+        let currentLang = localStorage.getItem('bereket_lang') || 'tr';
+        
+        const TRANSLATIONS = {
+            tr: {
+                // Header & Navigation
+                prayer_fajr: 'İmsak', prayer_sunrise: 'Güneş', prayer_dhuhr: 'Öğle',
+                prayer_asr: 'İkindi', prayer_maghrib: 'Akşam', prayer_isha: 'Yatsı',
+                getting_location: 'Konum alınıyor...', location_obtained: 'Konum alındı',
+                nav_timer: 'Zamanlayıcı', nav_calendar: 'Takvim', nav_settings: 'Ayarlar',
+                
+                // Timer
+                work: 'Çalışma', break_short: 'Kısa Mola', break_long: 'Uzun Mola',
+                session: 'Oturum', pomodoro_complete: 'Pomodoro tamamlandı!',
+                break_over: 'Mola bitti! Çalışmaya dön.',
+                
+                // Stats
+                today_pomodoros: 'Bugünkü Pomodoro', minutes_worked: 'Dakika Çalışma',
+                completed_deeds: 'Tamamlanan Amel',
+                
+                // Deeds
+                daily_deeds: 'Günlük Ameller', add_new_deed: 'Yeni Amel Ekle',
+                deed_added: 'Yeni amel eklendi!', deed_completed: 'Amel tamamlandı ✓',
+                deed_name: 'Amel Adı', deed_category: 'Kategori',
+                cat_ibadet: 'İbadet', cat_ilim: 'İlim', cat_hayir: 'Hayır',
+                cat_ahlak: 'Ahlak', cat_dunya: 'Dünya İşleri',
+                add: 'Ekle',
+                
+                // Donation
+                sadaqah_jariyah: 'Sadaka-i Cariye', support_app: 'Bu uygulamanın geliştirilmesine destek olun',
+                donate: 'Bağış Yap', supporter: 'Destekçi',
+                select_amount: 'Lütfen bir miktar seçin',
+                
+                // Premium
+                remove_ads: 'Reklamları Kaldır', ad_area: 'Reklam Alanı',
+                already_premium: 'Zaten Premium üyesiniz! ⭐',
+                premium_features: 'Premium Özellikleri',
+                per_year: '/yıl', per_month_approx: 'Ayda sadece',
+                upgrade_premium: "Premium'a Geç", later: 'Daha Sonra',
+                restore_purchases: 'Satın Alımları Geri Yükle',
+                unlock_features: 'Tüm özelliklerin kilidini açın',
+                monthly_only: 'Ayda sadece',
+                cancel_anytime: 'İstediğiniz zaman iptal edebilirsiniz.',
+                price_monthly_hint: "Ayda $0.42'den az! ☕",
+                
+                // Premium Features
+                pf_adfree: 'Reklamsız deneyim',
+                pf_adfree_full: 'Reklamsız, kesintisiz deneyim',
+                pf_themes: 'Özel temalar (Kabe, Medine, Mescid-i Aksa)',
+                pf_themes_full: '3 özel tema: Kabe, Medine, Mescid-i Aksa',
+                pf_unlimited_deeds: 'Sınırsız özel amel ekleme',
+                pf_widgets: 'Gelişmiş widget\'lar',
+                pf_widgets_full: 'Ana ekran widget\'ları',
+                pf_family: 'Aile/grup takibi',
+                pf_family_full: 'Aile/grup amel takibi (5 kişiye kadar)',
+                pf_stats: 'Detaylı istatistikler',
+                pf_stats_full: 'Detaylı haftalık/aylık istatistikler',
+                pf_quran: 'Kur\'an tilaveti sesleri',
+                pf_quran_full: 'Kur\'an tilaveti ve ezan sesleri',
+                pf_support: 'Öncelikli destek',
+                
+                // Themes
+                theme_kaaba: 'Kabe',
+                theme_madinah: 'Medine',
+                theme_aqsa: 'Mescid-i Aksa',
+                
+                // Settings
+                settings_title: 'Ayarlar', pomodoro_durations: 'Pomodoro Süreleri',
+                work_duration: 'Çalışma Süresi', short_break: 'Kısa Mola',
+                long_break: 'Uzun Mola', long_break_interval: 'Uzun Mola Aralığı',
+                notifications: 'Bildirimler', prayer_notification: 'Namaz Vakti Bildirimi',
+                sound_notifications: 'Ses Bildirimleri', friday_reminder: 'Cuma Hatırlatması',
+                themes: 'Temalar', default_theme: 'Varsayılan',
+                minutes: 'dk', sessions: 'oturum',
+                account: 'Hesap',
+                
+                // Calendar
+                hijri_calendar: 'Hicri Takvim', upcoming_special_days: 'Yaklaşan Önemli Günler',
+                weekdays_short: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+                
+                // Modals
+                prayer_time: 'Namaz Vakti', ok: 'Tamam', save: 'Kaydet', cancel: 'İptal',
+                friday_prep: 'Cuma Hazırlığı',
+                
+                // Toast messages
+                toast_accepted: 'Allah kabul etsin!',
+                toast_deed_added: 'Yeni amel eklendi!',
+                toast_redirecting: "Google Play'e yönlendiriliyorsunuz...",
+                toast_billing_required: 'Satın alma için Google Play Billing gerekli',
+                toast_checking: 'Satın alımlar kontrol ediliyor...',
+                toast_no_purchases: 'Geri yüklenecek satın alım bulunamadı',
+                
+                // Wisdom types
+                hadith: 'Hadis-i Şerif', ayah: 'Ayet-i Kerime', dua: 'Dua', advice: 'Tavsiye',
+                
+                // Months
+                months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 
+                        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
+                days: ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'],
+                hijri_months: ['Muharrem', 'Safer', 'Rebîülevvel', 'Rebîülâhir', 'Cemâziyelevvel', 
+                              'Cemâziyelâhir', 'Receb', 'Şaban', 'Ramazan', 'Şevval', 'Zilkade', 'Zilhicce'],
+                
+                // Special days
+                special_days: {
+                    '1-1': { name: 'Hicri Yılbaşı', desc: 'Hicri yılın ilk günü' },
+                    '1-10': { name: 'Aşure Günü', desc: 'Oruç tutmak sünnettir' },
+                    '3-12': { name: 'Mevlid Kandili', desc: 'Peygamberimizin doğum günü' },
+                    '7-1': { name: 'Üç Aylar Başlangıcı', desc: 'Recep ayı başlangıcı' },
+                    '7-5': { name: 'Regaib Kandili', desc: 'Recep ayının ilk cuma gecesi' },
+                    '7-26': { name: 'Miraç Kandili', desc: 'İsra ve Miraç mucizesi' },
+                    '8-14': { name: 'Berat Kandili', desc: 'Günahların affedildiği gece' },
+                    '9-1': { name: 'Ramazan Başlangıcı', desc: 'Mübarek Ramazan ayı' },
+                    '9-26': { name: 'Kadir Gecesi', desc: 'Bin aydan hayırlı gece' },
+                    '10-1': { name: 'Ramazan Bayramı', desc: 'Bayram 1. gün' },
+                    '12-9': { name: 'Arefe Günü', desc: 'Kurban Bayramı arefesi' },
+                    '12-10': { name: 'Kurban Bayramı', desc: 'Bayram 1. gün' }
+                },
+                
+                // Default deeds
+                default_deeds: [
+                    { title: 'Sabah namazını cemaatle kılmak', reward: '27 kat sevap' },
+                    { title: "Kuran'dan en az 1 sayfa okumak", reward: 'Her harfe 10 sevap' },
+                    { title: 'Anne-babayı aramak', reward: 'Cennetin orta kapısı' },
+                    { title: '100 defa Sübhanallah demek', reward: 'Günahların affı' },
+                    { title: 'Bir sadaka vermek', reward: '700 kat sevap' }
+                ],
+                
+                // Wisdom
+                wisdom: {
+                    work: [
+                        { type: 'Ayet-i Kerime', text: '"De ki: Çalışın! Allah, Resulü ve müminler yaptıklarınızı görecektir."', source: 'Tevbe Suresi, 105', meaning: 'Çalışmalarımız Allah\'ın rızası içindir.' },
+                        { type: 'Hadis-i Şerif', text: '"İki nimet vardır ki, insanların çoğu bunlarda aldanmıştır: Sıhhat ve boş vakit."', source: 'Buhârî', meaning: 'Zamanın kıymetini bilelim.' },
+                        { type: 'Hadis-i Şerif', text: '"Kıyamet gününde kulun hesaba çekileceği ilk şey namazıdır."', source: 'Tirmizî', meaning: 'Namazlarımızı ihmal etmeyelim.' }
+                    ],
+                    break: [
+                        { type: 'Hadis-i Şerif', text: '"Sübhanallahi ve bihamdihi demek günahları siler."', source: 'Buhârî', meaning: 'Bu molada zikir yap.' },
+                        { type: 'Ayet-i Kerime', text: '"Kalpler ancak Allah\'ı anmakla huzur bulur."', source: "Ra'd Suresi, 28", meaning: 'Molada zikret.' }
+                    ]
+                },
+                
+                // Friday Prep
+                friday_prep_title: 'Cuma Hazırlıkları',
+                friday_prep_btn: 'Anladım',
+                friday_checklist: [
+                    { icon: '🚿', text: 'Cuma günü gusül almak', source: 'Buhârî, Cum\'a, 2' },
+                    { icon: '👔', text: 'Temiz ve güzel elbise giymek', source: 'İbn Mâce, İkâme, 83' },
+                    { icon: '🦷', text: 'Misvak kullanmak / diş temizliği', source: 'Buhârî, Cum\'a, 8' },
+                    { icon: '🌸', text: 'Güzel koku sürünmek', source: 'Buhârî, Cum\'a, 6' },
+                    { icon: '🚶', text: 'Camiye erken gitmek', source: 'Buhârî, Cum\'a, 4' },
+                    { icon: '📖', text: 'Kehf Suresi\'ni okumak', source: 'Hâkim, Müstedrek' },
+                    { icon: '🤲', text: 'İcabet saatinde dua etmek', source: 'Buhârî, Cum\'a, 37' },
+                    { icon: '💫', text: 'Peygamberimize çokça salavât getirmek', source: 'Ebû Dâvûd, Salât' }
+                ]
+            },
+            en: {
+                // Header & Navigation
+                prayer_fajr: 'Fajr', prayer_sunrise: 'Sunrise', prayer_dhuhr: 'Dhuhr',
+                prayer_asr: 'Asr', prayer_maghrib: 'Maghrib', prayer_isha: 'Isha',
+                getting_location: 'Getting location...', location_obtained: 'Location obtained',
+                nav_timer: 'Timer', nav_calendar: 'Calendar', nav_settings: 'Settings',
+                
+                // Timer
+                work: 'Work', break_short: 'Short Break', break_long: 'Long Break',
+                session: 'Session', pomodoro_complete: 'Pomodoro complete!',
+                break_over: 'Break is over! Back to work.',
+                
+                // Stats
+                today_pomodoros: "Today's Pomodoros", minutes_worked: 'Minutes Worked',
+                completed_deeds: 'Completed Deeds',
+                
+                // Deeds
+                daily_deeds: 'Daily Deeds', add_new_deed: 'Add New Deed',
+                deed_added: 'New deed added!', deed_completed: 'Deed completed ✓',
+                deed_name: 'Deed Name', deed_category: 'Category',
+                cat_ibadet: 'Worship', cat_ilim: 'Knowledge', cat_hayir: 'Charity',
+                cat_ahlak: 'Character', cat_dunya: 'Worldly Tasks',
+                add: 'Add',
+                
+                // Donation
+                sadaqah_jariyah: 'Sadaqah Jariyah', support_app: 'Support the development of this app',
+                donate: 'Donate', supporter: 'Supporter',
+                select_amount: 'Please select an amount',
+                
+                // Premium
+                remove_ads: 'Remove Ads', ad_area: 'Ad Space',
+                already_premium: 'You are already Premium! ⭐',
+                premium_features: 'Premium Features',
+                per_year: '/year', per_month_approx: 'Only per month',
+                upgrade_premium: 'Upgrade to Premium', later: 'Later',
+                restore_purchases: 'Restore Purchases',
+                unlock_features: 'Unlock all features',
+                monthly_only: 'Only per month',
+                cancel_anytime: 'Cancel anytime.',
+                price_monthly_hint: 'Less than $0.42/month! ☕',
+                
+                // Premium Features
+                pf_adfree: 'Ad-free experience',
+                pf_adfree_full: 'Ad-free, uninterrupted experience',
+                pf_themes: 'Special themes (Kaaba, Madinah, Al-Aqsa)',
+                pf_themes_full: '3 special themes: Kaaba, Madinah, Al-Aqsa',
+                pf_unlimited_deeds: 'Unlimited custom deeds',
+                pf_widgets: 'Advanced widgets',
+                pf_widgets_full: 'Home screen widgets',
+                pf_family: 'Family/group tracking',
+                pf_family_full: 'Family/group deed tracking (up to 5 people)',
+                pf_stats: 'Detailed statistics',
+                pf_stats_full: 'Detailed weekly/monthly statistics',
+                pf_quran: 'Quran recitation sounds',
+                pf_quran_full: 'Quran recitation and adhan sounds',
+                pf_support: 'Priority support',
+                
+                // Themes
+                theme_kaaba: 'Kaaba',
+                theme_madinah: 'Madinah',
+                theme_aqsa: 'Al-Aqsa',
+                
+                // Settings
+                settings_title: 'Settings', pomodoro_durations: 'Pomodoro Durations',
+                work_duration: 'Work Duration', short_break: 'Short Break',
+                long_break: 'Long Break', long_break_interval: 'Long Break Interval',
+                notifications: 'Notifications', prayer_notification: 'Prayer Time Notification',
+                sound_notifications: 'Sound Notifications', friday_reminder: 'Friday Reminder',
+                themes: 'Themes', default_theme: 'Default',
+                minutes: 'min', sessions: 'sessions',
+                account: 'Account',
+                
+                // Calendar
+                hijri_calendar: 'Hijri Calendar', upcoming_special_days: 'Upcoming Special Days',
+                weekdays_short: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                
+                // Modals
+                prayer_time: 'Prayer Time', ok: 'OK', save: 'Save', cancel: 'Cancel',
+                friday_prep: 'Friday Preparation',
+                
+                // Toast messages
+                toast_accepted: 'May Allah accept!',
+                toast_deed_added: 'New deed added!',
+                toast_redirecting: 'Redirecting to Google Play...',
+                toast_billing_required: 'Google Play Billing required for purchase',
+                toast_checking: 'Checking purchases...',
+                toast_no_purchases: 'No purchases to restore',
+                
+                // Wisdom types
+                hadith: 'Hadith', ayah: 'Quran Verse', dua: 'Dua', advice: 'Advice',
+                
+                // Months
+                months: ['January', 'February', 'March', 'April', 'May', 'June',
+                        'July', 'August', 'September', 'October', 'November', 'December'],
+                days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+                hijri_months: ['Muharram', 'Safar', 'Rabi al-Awwal', 'Rabi al-Thani', 'Jumada al-Awwal',
+                              'Jumada al-Thani', 'Rajab', 'Shaban', 'Ramadan', 'Shawwal', 'Dhu al-Qadah', 'Dhu al-Hijjah'],
+                
+                // Special days
+                special_days: {
+                    '1-1': { name: 'Islamic New Year', desc: 'First day of Hijri year' },
+                    '1-10': { name: 'Day of Ashura', desc: 'Fasting is recommended' },
+                    '3-12': { name: 'Mawlid an-Nabi', desc: "Prophet's birthday" },
+                    '7-1': { name: 'Three Holy Months Begin', desc: 'Start of Rajab' },
+                    '7-5': { name: 'Laylat al-Raghaib', desc: 'First Friday of Rajab' },
+                    '7-26': { name: 'Laylat al-Miraj', desc: 'Night Journey & Ascension' },
+                    '8-14': { name: 'Laylat al-Baraat', desc: 'Night of Forgiveness' },
+                    '9-1': { name: 'Ramadan Begins', desc: 'Blessed month of fasting' },
+                    '9-26': { name: 'Laylat al-Qadr', desc: 'Night better than 1000 months' },
+                    '10-1': { name: 'Eid al-Fitr', desc: 'Festival of Breaking Fast' },
+                    '12-9': { name: 'Day of Arafah', desc: 'Day before Eid al-Adha' },
+                    '12-10': { name: 'Eid al-Adha', desc: 'Festival of Sacrifice' }
+                },
+                
+                // Default deeds
+                default_deeds: [
+                    { title: 'Pray Fajr in congregation', reward: '27x reward' },
+                    { title: 'Read at least 1 page of Quran', reward: '10 rewards per letter' },
+                    { title: 'Call parents', reward: 'Middle gate of Paradise' },
+                    { title: 'Say SubhanAllah 100 times', reward: 'Forgiveness of sins' },
+                    { title: 'Give charity', reward: '700x reward' }
+                ],
+                
+                // Wisdom
+                wisdom: {
+                    work: [
+                        { type: 'Quran', text: '"Say: Work, for Allah will see your deeds, and so will His Messenger and the believers."', source: 'Surah At-Tawbah, 105', meaning: 'Our work is for Allah\'s pleasure.' },
+                        { type: 'Hadith', text: '"There are two blessings that many people lose: health and free time."', source: 'Bukhari', meaning: 'Value your time.' },
+                        { type: 'Hadith', text: '"The first thing a servant will be held accountable for on Judgment Day is prayer."', source: 'Tirmidhi', meaning: "Don't neglect prayers." }
+                    ],
+                    break: [
+                        { type: 'Hadith', text: '"Saying SubhanAllahi wa bihamdihi erases sins."', source: 'Bukhari', meaning: 'Make dhikr during break.' },
+                        { type: 'Quran', text: '"Verily, in the remembrance of Allah do hearts find rest."', source: 'Surah Ar-Ra\'d, 28', meaning: 'Remember Allah.' }
+                    ]
+                },
+                
+                // Friday Prep
+                friday_prep_title: 'Friday Preparations',
+                friday_prep_btn: 'Got it',
+                friday_checklist: [
+                    { icon: '🚿', text: 'Take a bath (ghusl) on Friday', source: 'Bukhari, Jumu\'ah, 2' },
+                    { icon: '👔', text: 'Wear clean and nice clothes', source: 'Ibn Majah, Iqamah, 83' },
+                    { icon: '🦷', text: 'Use miswak / brush teeth', source: 'Bukhari, Jumu\'ah, 8' },
+                    { icon: '🌸', text: 'Apply fragrance', source: 'Bukhari, Jumu\'ah, 6' },
+                    { icon: '🚶', text: 'Go to the mosque early', source: 'Bukhari, Jumu\'ah, 4' },
+                    { icon: '📖', text: 'Read Surah Al-Kahf', source: 'Hakim, Mustadrak' },
+                    { icon: '🤲', text: 'Make dua at the accepted hour', source: 'Bukhari, Jumu\'ah, 37' },
+                    { icon: '💫', text: 'Send abundant blessings upon the Prophet ﷺ', source: 'Abu Dawud, Salat' }
+                ]
+            }
+        };
+
+        function t(key) {
+            return TRANSLATIONS[currentLang][key] || TRANSLATIONS['tr'][key] || key;
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('bereket_lang', lang);
+            document.getElementById('htmlRoot').lang = lang;
+            
+            // Update language buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === lang);
+            });
+            
+            // Update all i18n elements
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (TRANSLATIONS[lang][key]) {
+                    el.textContent = TRANSLATIONS[lang][key];
+                }
+            });
+            
+            // Update calendar weekdays
+            const weekdaysContainer = document.getElementById('calendarWeekdays');
+            if (weekdaysContainer) {
+                const weekdays = TRANSLATIONS[lang].weekdays_short;
+                weekdaysContainer.innerHTML = weekdays.map(d => `<span>${d}</span>`).join('');
+            }
+            
+            // Update select options
+            const deedCategory = document.getElementById('deedCategory');
+            if (deedCategory) {
+                deedCategory.options[0].textContent = t('cat_ibadet');
+                deedCategory.options[1].textContent = t('cat_ilim');
+                deedCategory.options[2].textContent = t('cat_hayir');
+                deedCategory.options[3].textContent = t('cat_ahlak');
+                deedCategory.options[4].textContent = t('cat_dunya');
+            }
+            
+            // Update dynamic content
+            updateDateDisplay();
+            updateDefaultDeeds();
+            renderDeeds();
+            showRandomWisdom(state.timer.isBreak ? 'break' : 'work');
+            updateTimerDisplay();
+            renderCalendar();
+            renderUpcomingSpecialDays();
+            checkSpecialDay();
+            
+            // Update Friday prep modal if visible
+            const fridayModal = document.getElementById('fridayPrep');
+            if (fridayModal.classList.contains('visible')) {
+                const checklist = TRANSLATIONS[lang].friday_checklist;
+                document.getElementById('fridayPrepTitle').textContent = TRANSLATIONS[lang].friday_prep_title;
+                document.getElementById('fridayPrepBtn').textContent = TRANSLATIONS[lang].friday_prep_btn;
+                const checklistEl = document.getElementById('fridayChecklist');
+                checklistEl.innerHTML = checklist.map(item => 
+                    `<li><span class="icon">${item.icon}</span><div class="text">${item.text}<span class="source">${item.source}</span></div></li>`
+                ).join('');
+            }
+            
+            // Update location text if location is already obtained
+            const locationText = document.getElementById('locationText');
+            const locationStatus = document.getElementById('locationStatus');
+            if (locationStatus.classList.contains('active')) {
+                // Location already obtained, update the text format
+                const cityName = state.location.city || (lang === 'en' ? 'Location' : 'Konum');
+                locationText.textContent = cityName;
+            } else {
+                // Still getting location
+                locationText.textContent = t('getting_location');
+            }
+            
+            // Update donation buttons
+            updateDonationButtons();
+            
+            // Update premium prices
+            updatePremiumPrices();
+        }
+        
+        function updateDonationButtons() {
+            const amounts = currentLang === 'en' ? ['$5', '$10', '$20', '$40'] : ['50 TL', '100 TL', '200 TL', '400 TL'];
+            const values = currentLang === 'en' ? [5, 10, 20, 40] : [50, 100, 200, 400];
+            document.querySelectorAll('.donation-btn').forEach((btn, index) => {
+                btn.textContent = amounts[index];
+                btn.dataset.amount = values[index];
+            });
+        }
+        
+        function updatePremiumPrices() {
+            const priceYear = currentLang === 'en' ? '$19/year' : '490 TL/yıl';
+            const priceMonth = currentLang === 'en' ? '~$1.60/month' : '~41 TL/ay';
+            
+            // Update premium modal price
+            const premiumPrice = document.getElementById('premiumPrice');
+            if (premiumPrice) premiumPrice.textContent = priceYear;
+            
+            // Update premium panel prices
+            const premiumPanelPrice = document.getElementById('premiumPanelPrice');
+            if (premiumPanelPrice) premiumPanelPrice.textContent = priceYear;
+            
+            const premiumPanelMonthly = document.getElementById('premiumPanelMonthly');
+            if (premiumPanelMonthly) premiumPanelMonthly.textContent = priceMonth;
+            
+            // Update premium button price
+            const premiumBtnPrice = document.getElementById('premiumBtnPrice');
+            if (premiumBtnPrice) premiumBtnPrice.textContent = priceYear;
+        }
+        
+        function updateDefaultDeeds() {
+            // Reload default deeds with current language if not customized
+            const defaultDeedsData = TRANSLATIONS[currentLang].default_deeds;
+            state.deeds.forEach((deed, index) => {
+                if (!deed.custom && index < defaultDeedsData.length) {
+                    deed.title = defaultDeedsData[index].title;
+                    deed.reward = defaultDeedsData[index].reward;
+                }
+            });
+        }
+
+        const HIJRI_MONTHS = ['Muharrem', 'Safer', 'Rebîülevvel', 'Rebîülâhir', 'Cemâziyelevvel', 'Cemâziyelâhir', 'Receb', 'Şaban', 'Ramazan', 'Şevval', 'Zilkade', 'Zilhicce'];
+        const GREGORIAN_DAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+        const GREGORIAN_MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+        const SPECIAL_DAYS = { 
+            '1-1': { name: 'Hicri Yılbaşı', icon: '🌙', desc: 'Hicri yılın ilk günü' }, 
+            '1-10': { name: 'Aşure Günü', icon: '📿', desc: 'Oruç tutmak sünnettir' }, 
+            '3-12': { name: 'Mevlid Kandili', icon: '🕯️', desc: 'Peygamberimizin doğum günü' }, 
+            '7-1': { name: 'Üç Aylar Başlangıcı', icon: '☪️', desc: 'Recep ayı ve mübarek üç ayların başlangıcı' },
+            '7-5': { name: 'Regaib Kandili', icon: '🤲', desc: 'Recep ayının ilk cuma gecesi' },
+            '7-26': { name: 'Miraç Kandili', icon: '🌟', desc: 'İsra ve Miraç mucizesinin yıldönümü' }, 
+            '8-14': { name: 'Berat Kandili', icon: '📖', desc: 'Berat gecesi, günahların affedildiği gece' }, 
+            '9-1': { name: 'Ramazan Başlangıcı', icon: '🌙', desc: 'Mübarek Ramazan ayının ilk günü' }, 
+            '9-26': { name: 'Kadir Gecesi', icon: '⭐', desc: 'Bin aydan hayırlı gece' }, 
+            '10-1': { name: 'Ramazan Bayramı', icon: '🎉', desc: 'Ramazan Bayramı 1. gün' }, 
+            '12-9': { name: 'Arefe Günü', icon: '🤲', desc: 'Kurban Bayramı arefesi, oruç tutmak sünnettir' }, 
+            '12-10': { name: 'Kurban Bayramı', icon: '🕋', desc: 'Kurban Bayramı 1. gün' } 
+        };
+        const WISDOM_DATA = {
+            work: [
+                { type: 'Ayet-i Kerime', text: '"De ki: Çalışın! Allah, Resulü ve müminler yaptıklarınızı görecektir."', source: 'Tevbe Suresi, 105', meaning: 'Çalışmalarımız Allah\'ın rızası içindir.' },
+                { type: 'Hadis-i Şerif', text: '"Allah, birinizin bir iş yaptığında onu sağlam ve güzel yapmasını sever."', source: 'Beyhakî', meaning: 'İşlerimizi ihlas ve itina ile yapalım.' },
+                { type: 'Hadis-i Şerif', text: '"İki nimet vardır ki, insanların çoğu bunlarda aldanmıştır: Sıhhat ve boş vakit."', source: 'Buhârî, Rikâk, 1', meaning: 'Zamanın kıymetini bilelim.' },
+                { type: 'Ayet-i Kerime', text: '"Asra yemin olsun ki, insan gerçekten ziyan içindedir."', source: 'Asr Suresi, 1-2', meaning: 'Her anı değerlendirelim.' },
+                { type: 'Hadis-i Şerif', text: '"Kıyamet gününde kulun hesaba çekileceği ilk şey namazıdır."', source: 'Tirmizî', meaning: 'Namazlarımızı ihmal etmeyelim.' },
+                { type: 'Hadis-i Şerif', text: '"Dünya ahiretin tarlasıdır."', source: 'Aclûnî', meaning: 'Her güzel iş ahirette karşımıza çıkacak.' }
+            ],
+            break: [
+                { type: 'Hadis-i Şerif', text: '"Sübhanallahi ve bihamdihi demek günahları siler."', source: 'Buhârî', meaning: 'Bu molada zikir yap.' },
+                { type: 'Dua', text: '"Rabbim! İlmimi artır."', source: 'Tâhâ Suresi, 114', meaning: 'İlim öğrenirken bu duayı yapalım.' },
+                { type: 'Tavsiye', text: 'Bir bardak su iç ve şükret. Besmele çek, Elhamdülillah de.', source: 'Riyâzü\'s-Sâlihîn', meaning: 'Her nimete şükret.' },
+                { type: 'Hadis-i Şerif', text: '"Gülümsemek sadakadır."', source: 'Tirmizî', meaning: 'Birilerine gülümse, selam ver.' },
+                { type: 'Ayet-i Kerime', text: '"Kalpler ancak Allah\'ı anmakla huzur bulur."', source: 'Ra\'d Suresi, 28', meaning: 'Molada zikret.' }
+            ]
+        };
+        function getDefaultDeeds() {
+            const deedsData = TRANSLATIONS[currentLang].default_deeds;
+            return [
+                { id: 1, title: deedsData[0].title, category: 'ibadet', reward: deedsData[0].reward, completed: false },
+                { id: 2, title: deedsData[1].title, category: 'ilim', reward: deedsData[1].reward, completed: false },
+                { id: 3, title: deedsData[2].title, category: 'ahlak', reward: deedsData[2].reward, completed: false },
+                { id: 4, title: deedsData[3].title, category: 'ibadet', reward: deedsData[3].reward, completed: false },
+                { id: 5, title: deedsData[4].title, category: 'hayir', reward: deedsData[4].reward, completed: false }
+            ];
+        }
+        
+        const DEFAULT_DEEDS = [
+            { id: 1, title: 'Sabah namazını cemaatle kılmak', category: 'ibadet', reward: '27 kat sevap', completed: false },
+            { id: 2, title: 'Kuran\'dan en az 1 sayfa okumak', category: 'ilim', reward: 'Her harfe 10 sevap', completed: false },
+            { id: 3, title: 'Anne-babayı aramak', category: 'ahlak', reward: 'Cennetin orta kapısı', completed: false },
+            { id: 4, title: '100 defa Sübhanallah demek', category: 'ibadet', reward: 'Günahların affı', completed: false },
+            { id: 5, title: 'Bir sadaka vermek', category: 'hayir', reward: '700 kat sevap', completed: false }
+        ];
+
+        let state = { 
+            timer: { isRunning: false, isBreak: false, currentTime: 25*60, totalTime: 25*60, session: 1, interval: null }, 
+            settings: { workDuration: 25, shortBreak: 5, longBreak: 15, longBreakInterval: 4, prayerNotifications: true, soundEnabled: true, fridayReminder: true }, 
+            location: { latitude: null, longitude: null, city: null }, 
+            prayerTimes: {}, 
+            deeds: [...DEFAULT_DEEDS], 
+            customDeeds: [],
+            stats: { todayPomodoros: 0, todayMinutes: 0, completedDeeds: 0 }, 
+            hijriDate: { day: 6, month: 6, year: 1447 }, 
+            calendarMonth: 6, 
+            calendarYear: 1447,
+            // Premium State
+            isPremium: false,
+            isDonor: false,
+            donationAmount: 0,
+            currentTheme: 'default',
+            maxFreeCustomDeeds: 5
+        };
+
+        document.addEventListener('DOMContentLoaded', () => { loadState(); initLanguage(); initApp(); initPremium(); initDonation(); });
+
+        function initLanguage() {
+            currentLang = localStorage.getItem('bereket_lang') || 'tr';
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.lang === currentLang);
+            });
+            document.getElementById('htmlRoot').lang = currentLang;
+            // Apply translations
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.dataset.i18n;
+                if (TRANSLATIONS[currentLang][key]) {
+                    el.textContent = TRANSLATIONS[currentLang][key];
+                }
+            });
+            // Update default deeds based on language
+            updateDefaultDeeds();
+            // Update calendar weekdays
+            const weekdaysContainer = document.getElementById('calendarWeekdays');
+            if (weekdaysContainer) {
+                const weekdays = TRANSLATIONS[currentLang].weekdays_short;
+                weekdaysContainer.innerHTML = weekdays.map(d => `<span>${d}</span>`).join('');
+            }
+            // Update donation buttons and premium prices
+            updateDonationButtons();
+            updatePremiumPrices();
+        }
+
+        function initApp() { 
+            updateDateDisplay(); 
+            renderDeeds(); 
+            updateStats(); 
+            // Konum ve namaz vakitlerini API'den al
+            getLocation(); 
+            checkSpecialDay(); 
+            setupEventListeners(); 
+            updateTimerDisplay(); 
+            showRandomWisdom('work'); 
+            if (new Date().getDay() === 5 && state.settings.fridayReminder) setTimeout(showFridayPrep, 1000); 
+        }
+        function loadState() { const s = localStorage.getItem('bereketTimerState'); if (s) { const p = JSON.parse(s); state.settings = { ...state.settings, ...p.settings }; state.deeds = p.deeds || [...DEFAULT_DEEDS]; state.stats = p.stats || state.stats; } document.getElementById('workDuration').value = state.settings.workDuration; document.getElementById('shortBreak').value = state.settings.shortBreak; document.getElementById('longBreak').value = state.settings.longBreak; document.getElementById('longBreakInterval').value = state.settings.longBreakInterval; state.timer.currentTime = state.settings.workDuration * 60; state.timer.totalTime = state.settings.workDuration * 60; }
+        function saveState() { localStorage.setItem('bereketTimerState', JSON.stringify({ settings: state.settings, deeds: state.deeds, stats: state.stats })); }
+        // İstanbul Namaz Vakitleri - Kasım 2025 - Şubat 2026 (Diyanet verileri)
+        const PRAYER_DATA = {
+            // Kasım 2025
+            '2025-11-01': { fajr: '05:58', sunrise: '07:24', dhuhr: '12:47', asr: '15:36', maghrib: '18:00', isha: '19:22' },
+            '2025-11-02': { fajr: '05:59', sunrise: '07:25', dhuhr: '12:47', asr: '15:35', maghrib: '17:59', isha: '19:21' },
+            '2025-11-03': { fajr: '06:01', sunrise: '07:27', dhuhr: '12:47', asr: '15:34', maghrib: '17:57', isha: '19:19' },
+            '2025-11-04': { fajr: '06:02', sunrise: '07:28', dhuhr: '12:47', asr: '15:33', maghrib: '17:56', isha: '19:18' },
+            '2025-11-05': { fajr: '06:03', sunrise: '07:29', dhuhr: '12:47', asr: '15:32', maghrib: '17:55', isha: '19:17' },
+            '2025-11-06': { fajr: '06:05', sunrise: '07:31', dhuhr: '12:47', asr: '15:31', maghrib: '17:53', isha: '19:16' },
+            '2025-11-07': { fajr: '06:06', sunrise: '07:32', dhuhr: '12:47', asr: '15:30', maghrib: '17:52', isha: '19:15' },
+            '2025-11-08': { fajr: '06:07', sunrise: '07:33', dhuhr: '12:47', asr: '15:29', maghrib: '17:51', isha: '19:14' },
+            '2025-11-09': { fajr: '06:09', sunrise: '07:35', dhuhr: '12:47', asr: '15:28', maghrib: '17:50', isha: '19:13' },
+            '2025-11-10': { fajr: '06:10', sunrise: '07:36', dhuhr: '12:48', asr: '15:27', maghrib: '17:49', isha: '19:12' },
+            '2025-11-11': { fajr: '06:11', sunrise: '07:37', dhuhr: '12:48', asr: '15:26', maghrib: '17:48', isha: '19:11' },
+            '2025-11-12': { fajr: '06:13', sunrise: '07:39', dhuhr: '12:48', asr: '15:26', maghrib: '17:47', isha: '19:10' },
+            '2025-11-13': { fajr: '06:14', sunrise: '07:40', dhuhr: '12:48', asr: '15:25', maghrib: '17:46', isha: '19:10' },
+            '2025-11-14': { fajr: '06:15', sunrise: '07:42', dhuhr: '12:49', asr: '15:24', maghrib: '17:45', isha: '19:09' },
+            '2025-11-15': { fajr: '06:17', sunrise: '07:43', dhuhr: '12:49', asr: '15:24', maghrib: '17:44', isha: '19:08' },
+            '2025-11-16': { fajr: '06:18', sunrise: '07:44', dhuhr: '12:49', asr: '15:23', maghrib: '17:43', isha: '19:08' },
+            '2025-11-17': { fajr: '06:19', sunrise: '07:46', dhuhr: '12:50', asr: '15:23', maghrib: '17:43', isha: '19:07' },
+            '2025-11-18': { fajr: '06:21', sunrise: '07:47', dhuhr: '12:50', asr: '15:22', maghrib: '17:42', isha: '19:07' },
+            '2025-11-19': { fajr: '06:22', sunrise: '07:48', dhuhr: '12:51', asr: '15:22', maghrib: '17:41', isha: '19:06' },
+            '2025-11-20': { fajr: '06:23', sunrise: '07:50', dhuhr: '12:51', asr: '15:21', maghrib: '17:41', isha: '19:06' },
+            '2025-11-21': { fajr: '06:24', sunrise: '07:51', dhuhr: '12:51', asr: '15:21', maghrib: '17:40', isha: '19:06' },
+            '2025-11-22': { fajr: '06:26', sunrise: '07:52', dhuhr: '12:52', asr: '15:21', maghrib: '17:40', isha: '19:05' },
+            '2025-11-23': { fajr: '06:27', sunrise: '07:54', dhuhr: '12:52', asr: '15:20', maghrib: '17:39', isha: '19:05' },
+            '2025-11-24': { fajr: '06:28', sunrise: '07:55', dhuhr: '12:53', asr: '15:20', maghrib: '17:39', isha: '19:05' },
+            '2025-11-25': { fajr: '06:29', sunrise: '07:56', dhuhr: '12:53', asr: '15:20', maghrib: '17:39', isha: '19:05' },
+            '2025-11-26': { fajr: '06:27', sunrise: '07:57', dhuhr: '12:56', asr: '15:23', maghrib: '17:46', isha: '19:10' },
+            '2025-11-27': { fajr: '06:28', sunrise: '07:58', dhuhr: '12:57', asr: '15:23', maghrib: '17:45', isha: '19:10' },
+            '2025-11-28': { fajr: '06:29', sunrise: '07:59', dhuhr: '12:57', asr: '15:23', maghrib: '17:45', isha: '19:10' },
+            '2025-11-29': { fajr: '06:30', sunrise: '08:00', dhuhr: '12:57', asr: '15:22', maghrib: '17:44', isha: '19:09' },
+            '2025-11-30': { fajr: '06:31', sunrise: '08:01', dhuhr: '12:58', asr: '15:22', maghrib: '17:44', isha: '19:09' },
+            // Aralık 2025
+            '2025-12-01': { fajr: '06:32', sunrise: '08:02', dhuhr: '12:58', asr: '15:22', maghrib: '17:44', isha: '19:09' },
+            '2025-12-02': { fajr: '06:33', sunrise: '08:03', dhuhr: '12:58', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-03': { fajr: '06:33', sunrise: '08:04', dhuhr: '12:59', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-04': { fajr: '06:34', sunrise: '08:05', dhuhr: '12:59', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-05': { fajr: '06:35', sunrise: '08:06', dhuhr: '13:00', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-06': { fajr: '06:36', sunrise: '08:07', dhuhr: '13:00', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-07': { fajr: '06:37', sunrise: '08:08', dhuhr: '13:00', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-08': { fajr: '06:38', sunrise: '08:09', dhuhr: '13:01', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-09': { fajr: '06:38', sunrise: '08:10', dhuhr: '13:01', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-10': { fajr: '06:39', sunrise: '08:11', dhuhr: '13:02', asr: '15:22', maghrib: '17:43', isha: '19:09' },
+            '2025-12-11': { fajr: '06:40', sunrise: '08:12', dhuhr: '13:02', asr: '15:23', maghrib: '17:43', isha: '19:10' },
+            '2025-12-12': { fajr: '06:40', sunrise: '08:12', dhuhr: '13:03', asr: '15:23', maghrib: '17:44', isha: '19:10' },
+            '2025-12-13': { fajr: '06:41', sunrise: '08:13', dhuhr: '13:03', asr: '15:23', maghrib: '17:44', isha: '19:10' },
+            '2025-12-14': { fajr: '06:42', sunrise: '08:14', dhuhr: '13:04', asr: '15:24', maghrib: '17:44', isha: '19:11' },
+            '2025-12-15': { fajr: '06:42', sunrise: '08:14', dhuhr: '13:04', asr: '15:24', maghrib: '17:45', isha: '19:11' },
+            '2025-12-16': { fajr: '06:43', sunrise: '08:15', dhuhr: '13:05', asr: '15:25', maghrib: '17:45', isha: '19:12' },
+            '2025-12-17': { fajr: '06:43', sunrise: '08:16', dhuhr: '13:05', asr: '15:25', maghrib: '17:46', isha: '19:12' },
+            '2025-12-18': { fajr: '06:44', sunrise: '08:16', dhuhr: '13:06', asr: '15:26', maghrib: '17:46', isha: '19:13' },
+            '2025-12-19': { fajr: '06:44', sunrise: '08:17', dhuhr: '13:06', asr: '15:26', maghrib: '17:47', isha: '19:13' },
+            '2025-12-20': { fajr: '06:45', sunrise: '08:17', dhuhr: '13:07', asr: '15:27', maghrib: '17:47', isha: '19:14' },
+            '2025-12-21': { fajr: '06:45', sunrise: '08:17', dhuhr: '13:07', asr: '15:28', maghrib: '17:48', isha: '19:14' },
+            '2025-12-22': { fajr: '06:45', sunrise: '08:18', dhuhr: '13:08', asr: '15:28', maghrib: '17:49', isha: '19:15' },
+            '2025-12-23': { fajr: '06:46', sunrise: '08:18', dhuhr: '13:08', asr: '15:29', maghrib: '17:49', isha: '19:16' },
+            '2025-12-24': { fajr: '06:46', sunrise: '08:18', dhuhr: '13:09', asr: '15:30', maghrib: '17:50', isha: '19:16' },
+            '2025-12-25': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:09', asr: '15:30', maghrib: '17:51', isha: '19:17' },
+            '2025-12-26': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:10', asr: '15:31', maghrib: '17:51', isha: '19:18' },
+            '2025-12-27': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:10', asr: '15:32', maghrib: '17:52', isha: '19:18' },
+            '2025-12-28': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:11', asr: '15:33', maghrib: '17:53', isha: '19:19' },
+            '2025-12-29': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:11', asr: '15:34', maghrib: '17:54', isha: '19:20' },
+            '2025-12-30': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:12', asr: '15:35', maghrib: '17:55', isha: '19:21' },
+            '2025-12-31': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:12', asr: '15:35', maghrib: '17:56', isha: '19:21' },
+            // Ocak 2026
+            '2026-01-01': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:13', asr: '15:36', maghrib: '17:57', isha: '19:22' },
+            '2026-01-02': { fajr: '06:46', sunrise: '08:19', dhuhr: '13:13', asr: '15:37', maghrib: '17:58', isha: '19:23' },
+            '2026-01-03': { fajr: '06:45', sunrise: '08:19', dhuhr: '13:14', asr: '15:38', maghrib: '17:59', isha: '19:24' },
+            '2026-01-04': { fajr: '06:45', sunrise: '08:18', dhuhr: '13:14', asr: '15:39', maghrib: '18:00', isha: '19:24' },
+            '2026-01-05': { fajr: '06:45', sunrise: '08:18', dhuhr: '13:14', asr: '15:40', maghrib: '18:01', isha: '19:25' },
+            '2026-01-06': { fajr: '06:44', sunrise: '08:17', dhuhr: '13:15', asr: '15:41', maghrib: '18:02', isha: '19:26' },
+            '2026-01-07': { fajr: '06:44', sunrise: '08:17', dhuhr: '13:15', asr: '15:42', maghrib: '18:03', isha: '19:27' },
+            '2026-01-08': { fajr: '06:43', sunrise: '08:17', dhuhr: '13:15', asr: '15:43', maghrib: '18:04', isha: '19:27' },
+            '2026-01-09': { fajr: '06:43', sunrise: '08:16', dhuhr: '13:16', asr: '15:45', maghrib: '18:05', isha: '19:28' },
+            '2026-01-10': { fajr: '06:42', sunrise: '08:15', dhuhr: '13:16', asr: '15:46', maghrib: '18:06', isha: '19:29' },
+            '2026-01-15': { fajr: '06:40', sunrise: '08:13', dhuhr: '13:17', asr: '15:50', maghrib: '18:11', isha: '19:33' },
+            '2026-01-20': { fajr: '06:37', sunrise: '08:09', dhuhr: '13:17', asr: '15:55', maghrib: '18:16', isha: '19:37' },
+            '2026-01-25': { fajr: '06:33', sunrise: '08:04', dhuhr: '13:17', asr: '16:00', maghrib: '18:22', isha: '19:42' },
+            '2026-01-31': { fajr: '06:28', sunrise: '07:57', dhuhr: '13:17', asr: '16:07', maghrib: '18:29', isha: '19:47' },
+            // Şubat 2026
+            '2026-02-05': { fajr: '06:22', sunrise: '07:50', dhuhr: '13:16', asr: '16:13', maghrib: '18:35', isha: '19:52' },
+            '2026-02-10': { fajr: '06:16', sunrise: '07:43', dhuhr: '13:15', asr: '16:18', maghrib: '18:40', isha: '19:57' },
+            '2026-02-15': { fajr: '06:09', sunrise: '07:35', dhuhr: '13:14', asr: '16:23', maghrib: '18:46', isha: '20:02' },
+            '2026-02-20': { fajr: '06:01', sunrise: '07:26', dhuhr: '13:12', asr: '16:28', maghrib: '18:52', isha: '20:07' },
+            '2026-02-28': { fajr: '05:49', sunrise: '07:13', dhuhr: '13:09', asr: '16:35', maghrib: '19:00', isha: '20:15' }
+        };
+
+        async function getLocation() {
+            const locationText = document.getElementById('locationText');
+            const locationStatus = document.getElementById('locationStatus');
+            
+            // Yerel verilerle başla (İstanbul)
+            state.location.latitude = 41.0082;
+            state.location.longitude = 28.9784;
+            state.location.city = 'İstanbul';
+            
+            loadLocalPrayerTimes(41.0082, 28.9784);
+            locationText.textContent = 'İstanbul';
+            locationStatus.classList.add('active');
+        }
+
+        function useDefaultLocation() {
+            state.location.latitude = 41.0082;
+            state.location.longitude = 28.9784;
+            state.location.city = 'İstanbul';
+            document.getElementById('locationText').textContent = 'İstanbul';
+            document.getElementById('locationStatus').classList.add('active');
+            loadLocalPrayerTimes(41.0082, 28.9784);
+        }
+
+        function loadLocalPrayerTimes(lat, lng) {
+            const d = new Date();
+            const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            
+            if (PRAYER_DATA[dateKey]) {
+                state.prayerTimes = { ...PRAYER_DATA[dateKey] };
+            } else {
+                // En yakın tarihi bul
+                const dates = Object.keys(PRAYER_DATA).sort();
+                let closestDate = dates[0];
+                for (const date of dates) {
+                    if (date <= dateKey) closestDate = date;
+                    else break;
+                }
+                
+                if (PRAYER_DATA[closestDate]) {
+                    state.prayerTimes = { ...PRAYER_DATA[closestDate] };
+                } else {
+                    // Astronomik hesaplama
+                    calculatePrayerTimesLocally(lat || 41.0082, lng || 28.9784);
+                    return;
+                }
+            }
+            
+            updatePrayerTimesUI();
+            highlightCurrentPrayer();
+            startPrayerCheck();
+        }
+
+        function calculatePrayerTimesLocally(lat, lng) {
+            lat = lat || 41.0082;
+            lng = lng || 28.9784;
+            
+            const d = new Date();
+            const jd = julianDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+            const T = (jd - 2451545.0) / 36525;
+            const L0 = fixAngle(280.46646 + 36000.76983 * T);
+            const M = fixAngle(357.52911 + 35999.05029 * T);
+            const e = 0.016708634 - 0.000042037 * T;
+            const C = (1.914602 - 0.004817 * T) * Math.sin(degToRad(M)) + 
+                      (0.019993 - 0.000101 * T) * Math.sin(degToRad(2 * M));
+            const sunLong = L0 + C;
+            const obliq = 23.439 - 0.00000036 * T;
+            const decl = radToDeg(Math.asin(Math.sin(degToRad(obliq)) * Math.sin(degToRad(sunLong))));
+            
+            let y = Math.tan(degToRad(obliq / 2)); y *= y;
+            const eqTime = 4 * radToDeg(y * Math.sin(2 * degToRad(L0)) - 2 * e * Math.sin(degToRad(M)) + 
+                          4 * e * y * Math.sin(degToRad(M)) * Math.cos(2 * degToRad(L0)));
+            
+            const tz = -d.getTimezoneOffset() / 60;
+            const noon = 12 + tz - lng / 15 - eqTime / 60;
+            
+            state.prayerTimes = {
+                fajr: formatTime(noon - hourAngle(lat, decl, 18) / 15),
+                sunrise: formatTime(noon - hourAngle(lat, decl, 0.833) / 15),
+                dhuhr: formatTime(noon + 2/60),
+                asr: formatTime(noon + asrTime(lat, decl, 2) / 15),
+                maghrib: formatTime(noon + hourAngle(lat, decl, 0.833) / 15),
+                isha: formatTime(noon + hourAngle(lat, decl, 17) / 15)
+            };
+            
+            const currentText = document.getElementById('locationText').textContent;
+            if (!currentText.includes('Hesaplama')) {
+                document.getElementById('locationText').textContent = currentText + ' (Hesaplama)';
+            }
+            
+            updatePrayerTimesUI();
+            highlightCurrentPrayer();
+            startPrayerCheck();
+        }
+
+        function startPrayerCheck() {
+            if (!state.prayerCheckInterval) {
+                state.prayerCheckInterval = setInterval(checkPrayerTime, 60000);
+            }
+        }
+
+        function julianDate(y, m, d) {
+            if (m <= 2) { y--; m += 12; }
+            const A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+            return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+        }
+        function hourAngle(lat, decl, angle) {
+            const cosHA = (Math.sin(degToRad(-angle)) - Math.sin(degToRad(lat)) * Math.sin(degToRad(decl))) / 
+                          (Math.cos(degToRad(lat)) * Math.cos(degToRad(decl)));
+            return radToDeg(Math.acos(Math.max(-1, Math.min(1, cosHA))));
+        }
+        function asrTime(lat, decl, factor) {
+            const tanA = Math.abs(lat - decl);
+            const angle = radToDeg(Math.atan(1 / (factor + Math.tan(degToRad(tanA)))));
+            return hourAngle(lat, decl, -angle);
+        }
+        function degToRad(d) { return d * Math.PI / 180; }
+        function radToDeg(r) { return r * 180 / Math.PI; }
+        function fixAngle(a) { return a - 360 * Math.floor(a / 360); }
+        function formatTime(h) {
+            const hr = Math.floor(h), mn = Math.round((h - hr) * 60);
+            return `${String(hr).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+        }
+        function updatePrayerTimesUI() { 
+            ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(p => 
+                document.getElementById(p + 'Time').textContent = state.prayerTimes[p] || '--:--'
+            ); 
+        }
+        function highlightCurrentPrayer() { const now = new Date(), cm = now.getHours() * 60 + now.getMinutes(); const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha']; let cp = 'isha', np = 'fajr'; for (let i = prayers.length - 1; i >= 0; i--) { const t = state.prayerTimes[prayers[i]]; if (t) { const [h, m] = t.split(':').map(Number); if (cm >= h * 60 + m) { cp = prayers[i]; np = prayers[(i + 1) % prayers.length]; break; } } } document.querySelectorAll('.prayer-time').forEach(el => { el.classList.remove('active', 'next'); if (el.dataset.prayer === cp) el.classList.add('active'); if (el.dataset.prayer === np) el.classList.add('next'); }); }
+        function checkPrayerTime() { const now = new Date(), ct = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`; const msgs = { fajr: { title: 'İmsak Vakti', msg: 'Sabah namazını cemaatle kılmak gecenin yarısını ibadetle geçirmek gibidir.' }, dhuhr: { title: 'Öğle Namazı Vakti', msg: 'Cemaatle namaz 27 kat daha faziletlidir.' }, asr: { title: 'İkindi Namazı Vakti', msg: 'Kim ikindi namazını terk ederse ameli boşa gider.' }, maghrib: { title: 'Akşam Namazı Vakti', msg: 'Akşam namazını geciktirmeden kılalım.' }, isha: { title: 'Yatsı Namazı Vakti', msg: 'Yatsı namazını cemaatle kılan gecenin yarısını ibadetle geçirmiş gibidir.' } }; for (const p of ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']) { if (state.prayerTimes[p] === ct && state.settings.prayerNotifications) { document.getElementById('prayerAlertTitle').textContent = msgs[p].title; document.getElementById('prayerAlertMessage').textContent = msgs[p].msg; document.getElementById('prayerAlert').classList.add('visible'); if (state.timer.isRunning) pauseTimer(); if (state.settings.soundEnabled) playSound(); break; } } highlightCurrentPrayer(); }
+        function closePrayerAlert() { document.getElementById('prayerAlert').classList.remove('visible'); }
+        function setupEventListeners() { document.getElementById('playPauseBtn').addEventListener('click', toggleTimer); document.getElementById('resetBtn').addEventListener('click', resetTimer); document.getElementById('skipBtn').addEventListener('click', skipTimer); document.getElementById('addDeedBtn').addEventListener('click', () => { if (!state.isPremium && state.customDeeds.length >= state.maxFreeCustomDeeds) { showPremiumModal(); return; } document.getElementById('addDeedModal').classList.add('visible'); }); document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', function() { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); this.classList.add('active'); const page = this.dataset.page; if (page === 'settings') openSettings(); else if (page === 'calendar') openCalendar(); else if (page === 'premium') { if (state.isPremium) { showToast('Zaten Premium üyesiniz! ⭐'); } else { document.getElementById('premiumPanel').classList.add('visible'); } } else { closeSettings(); closeCalendar(); closePremiumPanel(); } }); }); ['workDuration', 'shortBreak', 'longBreak', 'longBreakInterval'].forEach(id => document.getElementById(id).addEventListener('change', updateSettings)); }
+        function toggleTimer() { state.timer.isRunning ? pauseTimer() : startTimer(); }
+        function startTimer() { state.timer.isRunning = true; document.getElementById('playPauseBtn').innerHTML = '⏸'; state.timer.interval = setInterval(() => { state.timer.currentTime--; updateTimerDisplay(); if (state.timer.currentTime <= 0) completeSession(); }, 1000); }
+        function pauseTimer() { state.timer.isRunning = false; document.getElementById('playPauseBtn').innerHTML = '▶'; clearInterval(state.timer.interval); }
+        function resetTimer() { pauseTimer(); state.timer.currentTime = (state.timer.isBreak ? (state.timer.session % state.settings.longBreakInterval === 0 ? state.settings.longBreak : state.settings.shortBreak) : state.settings.workDuration) * 60; state.timer.totalTime = state.timer.currentTime; updateTimerDisplay(); }
+        function skipTimer() { completeSession(); }
+        function completeSession() { pauseTimer(); if (!state.timer.isBreak) { state.stats.todayPomodoros++; state.stats.todayMinutes += state.settings.workDuration; updateStats(); saveState(); showToast('Maşallah! Mola zamanı!'); state.timer.isBreak = true; const isLong = state.timer.session % state.settings.longBreakInterval === 0; state.timer.currentTime = (isLong ? state.settings.longBreak : state.settings.shortBreak) * 60; showRandomWisdom('break'); } else { state.timer.isBreak = false; state.timer.session++; state.timer.currentTime = state.settings.workDuration * 60; showToast('Bismillah, haydi çalışmaya!'); showRandomWisdom('work'); } state.timer.totalTime = state.timer.currentTime; updateTimerDisplay(); if (state.settings.soundEnabled) playSound(); }
+        function updateTimerDisplay() { 
+            const m = Math.floor(state.timer.currentTime / 60), s = state.timer.currentTime % 60; 
+            document.getElementById('timerTime').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; 
+            const mode = document.getElementById('timerMode'), prog = document.getElementById('timerProgress'); 
+            if (state.timer.isBreak) { 
+                mode.textContent = t('break_short'); 
+                mode.classList.add('break'); 
+                prog.classList.add('break'); 
+            } else { 
+                mode.textContent = t('work'); 
+                mode.classList.remove('break'); 
+                prog.classList.remove('break'); 
+            } 
+            document.getElementById('timerSession').textContent = `${state.timer.session}. ${t('session')} / ${state.settings.longBreakInterval}`; 
+            prog.style.strokeDashoffset = 565.48 * (1 - state.timer.currentTime / state.timer.totalTime); 
+        }
+        function showRandomWisdom(type) { 
+            const wisdomData = TRANSLATIONS[currentLang].wisdom[type] || WISDOM_DATA[type];
+            const w = wisdomData[Math.floor(Math.random() * wisdomData.length)]; 
+            document.getElementById('wisdomType').textContent = w.type; 
+            document.getElementById('wisdomText').textContent = w.text; 
+            document.getElementById('wisdomSource').textContent = '— ' + w.source; 
+            document.getElementById('wisdomMeaning').textContent = w.meaning; 
+        }
+        function renderDeeds() { 
+            const c = document.getElementById('deedsList'); 
+            c.innerHTML = ''; 
+            const labels = { ibadet: t('cat_ibadet'), ilim: t('cat_ilim'), hayir: t('cat_hayir'), ahlak: t('cat_ahlak'), dunya: t('cat_dunya') }; 
+            state.deeds.forEach(d => { 
+                const div = document.createElement('div'); 
+                div.className = `deed-item ${d.completed ? 'completed' : ''}`; 
+                div.innerHTML = `<div class="deed-checkbox" onclick="toggleDeed(${d.id})"></div><div class="deed-content"><div class="deed-title">${d.title}</div><div class="deed-reward">${d.reward}</div></div><span class="deed-type">${labels[d.category] || d.category}</span>`; 
+                c.appendChild(div); 
+            }); 
+        }
+        function toggleDeed(id) { const d = state.deeds.find(x => x.id === id); if (d) { d.completed = !d.completed; if (d.completed) { state.stats.completedDeeds++; showToast(t('toast_accepted')); } else state.stats.completedDeeds = Math.max(0, state.stats.completedDeeds - 1); renderDeeds(); updateStats(); saveState(); } }
+        function saveDeed() { 
+            const name = document.getElementById('deedName').value.trim(), cat = document.getElementById('deedCategory').value; 
+            if (name) { 
+                const rewards = currentLang === 'en' ? 
+                    { ibadet: 'Great reward from Allah', ilim: 'Seeking knowledge is obligatory', hayir: 'Charity removes calamity', ahlak: 'Good character completes faith', dunya: 'Halal earning is worship' } :
+                    { ibadet: 'Allah katında büyük sevap', ilim: 'İlim öğrenmek farzdır', hayir: 'Sadaka belayı def eder', ahlak: 'Güzel ahlak imanın tamamıdır', dunya: 'Helal kazanç ibadettir' }; 
+                const newDeed = { id: Date.now(), title: name, category: cat, reward: rewards[cat], completed: false, custom: true }; 
+                state.customDeeds.push(newDeed); 
+                localStorage.setItem('bereket_custom_deeds', JSON.stringify(state.customDeeds)); 
+                state.deeds.push(newDeed); 
+                renderDeeds(); 
+                saveState(); 
+                closeAddDeedModal(); 
+                document.getElementById('deedName').value = ''; 
+                updatePremiumUI(); 
+                showToast(t('toast_deed_added')); 
+            } 
+        }
+        function closeAddDeedModal() { document.getElementById('addDeedModal').classList.remove('visible'); }
+        function updateStats() { document.getElementById('todayPomodoros').textContent = state.stats.todayPomodoros; document.getElementById('todayMinutes').textContent = state.stats.todayMinutes; document.getElementById('completedDeeds').textContent = state.stats.completedDeeds; }
+        function updateDateDisplay() { 
+            const now = new Date(); 
+            const months = TRANSLATIONS[currentLang].months;
+            const days = TRANSLATIONS[currentLang].days;
+            const hijriMonths = TRANSLATIONS[currentLang].hijri_months;
+            document.getElementById('gregorianDate').textContent = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()} ${days[now.getDay()]}`; 
+            const h = gregorianToHijri(now); 
+            state.hijriDate = h; 
+            state.calendarMonth = h.month; 
+            state.calendarYear = h.year; 
+            document.getElementById('hijriDate').textContent = `${h.day} ${hijriMonths[h.month - 1]} ${h.year}`; 
+        }
+        function gregorianToHijri(date) { 
+            // Hicri 1447 ay başlangıçları - hicritakvim.org referans alınarak
+            // Format: [year, month, day] = Gregorian start date of Hijri month
+            const hijriMonthStarts = {
+                // 1447 yılı
+                '1447-1': new Date(2025, 5, 26),   // 1 Muharrem 1447 = 26 Haziran 2025
+                '1447-2': new Date(2025, 6, 26),   // 1 Safer 1447 = 26 Temmuz 2025
+                '1447-3': new Date(2025, 7, 24),   // 1 Rebîülevvel 1447 = 24 Ağustos 2025
+                '1447-4': new Date(2025, 8, 23),   // 1 Rebîülâhir 1447 = 23 Eylül 2025
+                '1447-5': new Date(2025, 9, 23),   // 1 Cemâziyelevvel 1447 = 23 Ekim 2025
+                '1447-6': new Date(2025, 10, 21),  // 1 Cemâziyelâhir 1447 = 21 Kasım 2025
+                '1447-7': new Date(2025, 11, 21),  // 1 Receb 1447 = 21 Aralık 2025
+                '1447-8': new Date(2026, 0, 20),   // 1 Şaban 1447 = 20 Ocak 2026
+                '1447-9': new Date(2026, 1, 19),   // 1 Ramazan 1447 = 19 Şubat 2026
+                '1447-10': new Date(2026, 2, 20),  // 1 Şevval 1447 = 20 Mart 2026
+                '1447-11': new Date(2026, 3, 18),  // 1 Zilkade 1447 = 18 Nisan 2026
+                '1447-12': new Date(2026, 4, 18),  // 1 Zilhicce 1447 = 18 Mayıs 2026
+                // 1448 yılı
+                '1448-1': new Date(2026, 5, 16),   // 1 Muharrem 1448 = 16 Haziran 2026
+            };
+            
+            const inputDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            
+            // Find the Hijri month that contains this date
+            let foundYear = 1447, foundMonth = 1, foundDay = 1;
+            
+            for (let year = 1448; year >= 1447; year--) {
+                for (let month = 12; month >= 1; month--) {
+                    const key = `${year}-${month}`;
+                    if (hijriMonthStarts[key]) {
+                        const startDate = hijriMonthStarts[key];
+                        if (inputDate >= startDate) {
+                            foundYear = year;
+                            foundMonth = month;
+                            foundDay = Math.floor((inputDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                            return { day: foundDay, month: foundMonth, year: foundYear };
+                        }
+                    }
+                }
+            }
+            
+            return { day: foundDay, month: foundMonth, year: foundYear }; 
+        }
+        function checkSpecialDay() { 
+            const dow = new Date().getDay(); 
+            const specialDays = TRANSLATIONS[currentLang].special_days;
+            
+            // Cuma günü
+            if (dow === 5) { 
+                document.getElementById('specialDayAlert').classList.add('visible'); 
+                document.getElementById('specialDayTitle').textContent = currentLang === 'en' ? '🕌 Blessed Friday' : '🕌 Mübarek Cuma Günü'; 
+                document.getElementById('specialDayContent').textContent = currentLang === 'en' ? 
+                    "Don't forget to pray Jumu'ah in congregation, read Surah Al-Kahf, and send abundant blessings upon the Prophet ﷺ!" : 
+                    'Cuma namazını cemaatle kılmayı, Kehf Suresi\'ni okumayı ve bol salavât getirmeyi unutmayın!'; 
+                return; 
+            } 
+            
+            // Hicri özel günler
+            const key = `${state.hijriDate.month}-${state.hijriDate.day}`; 
+            if (specialDays[key]) { 
+                const s = specialDays[key]; 
+                const icons = { '1-1': '🌙', '1-10': '📿', '3-12': '🕯️', '7-1': '☪️', '7-5': '🤲', '7-26': '🌟', '8-14': '📖', '9-1': '🌙', '9-26': '⭐', '10-1': '🎉', '12-9': '🤲', '12-10': '🕋' };
+                document.getElementById('specialDayAlert').classList.add('visible'); 
+                document.getElementById('specialDayTitle').textContent = `${icons[key] || '✨'} ${s.name}`; 
+                document.getElementById('specialDayContent').textContent = s.desc; 
+                return;
+            } 
+            
+            // Pazartesi ve Perşembe orucu
+            if (dow === 1 || dow === 4) { 
+                document.getElementById('specialDayAlert').classList.add('visible'); 
+                if (currentLang === 'en') {
+                    document.getElementById('specialDayTitle').textContent = dow === 1 ? '📿 Monday' : '📿 Thursday'; 
+                    document.getElementById('specialDayContent').textContent = 'The Prophet ﷺ used to fast on these days. "Deeds are presented to Allah on these days."';
+                } else {
+                    document.getElementById('specialDayTitle').textContent = dow === 1 ? '📿 Pazartesi' : '📿 Perşembe'; 
+                    document.getElementById('specialDayContent').textContent = 'Hz. Peygamber bu günlerde oruç tutardı. "Ameller bu günlerde Allah\'a arz edilir."';
+                }
+            } 
+        }
+        function openCalendar() { document.getElementById('calendarPanel').classList.add('visible'); renderCalendar(); renderUpcomingSpecialDays(); }
+        function closeCalendar() { document.getElementById('calendarPanel').classList.remove('visible'); }
+        function renderCalendar() { 
+            const hijriMonths = TRANSLATIONS[currentLang].hijri_months;
+            const gregMonths = TRANSLATIONS[currentLang].months;
+            document.getElementById('calendarMonth').textContent = `${hijriMonths[state.calendarMonth - 1]} ${state.calendarYear}`; 
+            const firstGreg = hijriToGregorian(state.calendarYear, state.calendarMonth, 1); 
+            const dim = state.calendarMonth % 2 === 1 ? 30 : 29; 
+            const lastGreg = hijriToGregorian(state.calendarYear, state.calendarMonth, dim); 
+            const gregRange = firstGreg.month === lastGreg.month ? `${firstGreg.day} - ${lastGreg.day} ${gregMonths[firstGreg.month - 1]}` : `${firstGreg.day} ${gregMonths[firstGreg.month - 1]} - ${lastGreg.day} ${gregMonths[lastGreg.month - 1]}`; 
+            document.getElementById('calendarMonthGreg').textContent = gregRange; 
+            const c = document.getElementById('calendarDays'); 
+            c.innerHTML = ''; 
+            
+            // Calculate first day of week (Monday = 0, Sunday = 6)
+            const firstDayGreg = new Date(firstGreg.year || 2025, firstGreg.month - 1, firstGreg.day);
+            let firstDayOfWeek = firstDayGreg.getDay() - 1; // Convert: Sunday=0 becomes -1, Monday=1 becomes 0
+            if (firstDayOfWeek < 0) firstDayOfWeek = 6; // Sunday becomes 6
+            
+            for (let i = 0; i < firstDayOfWeek; i++) { 
+                const e = document.createElement('div'); 
+                e.className = 'calendar-day empty'; 
+                c.appendChild(e); 
+            } 
+            const specialDays = TRANSLATIONS[currentLang].special_days;
+            for (let d = 1; d <= dim; d++) { 
+                const el = document.createElement('div'); 
+                el.className = 'calendar-day'; 
+                const greg = hijriToGregorian(state.calendarYear, state.calendarMonth, d); 
+                el.innerHTML = `<span class="hijri-day">${d}</span><span class="gregorian-small">${greg.day}/${greg.month}</span>`; 
+                if (d === state.hijriDate.day && state.calendarMonth === state.hijriDate.month && state.calendarYear === state.hijriDate.year) el.classList.add('today'); 
+                const specialKey = `${state.calendarMonth}-${d}`;
+                if (specialDays[specialKey]) { el.classList.add('special'); el.title = specialDays[specialKey].name; } 
+                c.appendChild(el); 
+            } 
+        }
+        function hijriToGregorian(hy, hm, hd) { 
+            // Hicri 1447 ay başlangıçları - hicritakvim.org referans alınarak
+            const hijriMonthStarts = {
+                '1447-1': new Date(2025, 5, 26),   // 1 Muharrem 1447 = 26 Haziran 2025
+                '1447-2': new Date(2025, 6, 26),   // 1 Safer 1447 = 26 Temmuz 2025
+                '1447-3': new Date(2025, 7, 24),   // 1 Rebîülevvel 1447 = 24 Ağustos 2025
+                '1447-4': new Date(2025, 8, 23),   // 1 Rebîülâhir 1447 = 23 Eylül 2025
+                '1447-5': new Date(2025, 9, 23),   // 1 Cemâziyelevvel 1447 = 23 Ekim 2025
+                '1447-6': new Date(2025, 10, 21),  // 1 Cemâziyelâhir 1447 = 21 Kasım 2025
+                '1447-7': new Date(2025, 11, 21),  // 1 Receb 1447 = 21 Aralık 2025
+                '1447-8': new Date(2026, 0, 20),   // 1 Şaban 1447 = 20 Ocak 2026
+                '1447-9': new Date(2026, 1, 19),   // 1 Ramazan 1447 = 19 Şubat 2026
+                '1447-10': new Date(2026, 2, 20),  // 1 Şevval 1447 = 20 Mart 2026
+                '1447-11': new Date(2026, 3, 18),  // 1 Zilkade 1447 = 18 Nisan 2026
+                '1447-12': new Date(2026, 4, 18),  // 1 Zilhicce 1447 = 18 Mayıs 2026
+                '1448-1': new Date(2026, 5, 16),   // 1 Muharrem 1448 = 16 Haziran 2026
+            };
+            
+            const key = `${hy}-${hm}`;
+            if (hijriMonthStarts[key]) {
+                const startDate = hijriMonthStarts[key];
+                const targetDate = new Date(startDate.getTime() + (hd - 1) * 24 * 60 * 60 * 1000);
+                return { day: targetDate.getDate(), month: targetDate.getMonth() + 1, year: targetDate.getFullYear() }; 
+            }
+            
+            // Fallback for dates outside the defined range
+            return { day: 1, month: 1, year: 2025 };
+        }
+        function prevMonth() { state.calendarMonth--; if (state.calendarMonth < 1) { state.calendarMonth = 12; state.calendarYear--; } renderCalendar(); }
+        function nextMonth() { state.calendarMonth++; if (state.calendarMonth > 12) { state.calendarMonth = 1; state.calendarYear++; } renderCalendar(); }
+        function renderUpcomingSpecialDays() { 
+            const c = document.getElementById('upcomingSpecialDays'); 
+            c.innerHTML = ''; 
+            const up = []; 
+            const specialDays = TRANSLATIONS[currentLang].special_days;
+            const hijriMonths = TRANSLATIONS[currentLang].hijri_months;
+            const gregMonths = TRANSLATIONS[currentLang].months;
+            const icons = { '1-1': '🌙', '1-10': '📿', '3-12': '🕯️', '7-1': '☪️', '7-5': '🤲', '7-26': '🌟', '8-14': '📖', '9-1': '🌙', '9-26': '⭐', '10-1': '🎉', '12-9': '🤲', '12-10': '🕋' };
+            for (let mo = 0; mo < 6; mo++) { 
+                let cm = state.hijriDate.month + mo, cy = state.hijriDate.year; 
+                if (cm > 12) { cm -= 12; cy++; } 
+                for (const [k, v] of Object.entries(specialDays)) { 
+                    const [m, d] = k.split('-').map(Number); 
+                    if (m === cm && !(mo === 0 && d < state.hijriDate.day)) 
+                        up.push({ ...v, icon: icons[k], day: d, month: m, year: cy, monthName: hijriMonths[m - 1] }); 
+                } 
+            } 
+            up.sort((a, b) => a.year - b.year || a.month - b.month || a.day - b.day); 
+            up.slice(0, 8).forEach(s => { 
+                const greg = hijriToGregorian(s.year, s.month, s.day); 
+                const gregStr = `${greg.day} ${gregMonths[greg.month - 1]} ${greg.year}`; 
+                const div = document.createElement('div'); 
+                div.className = 'special-day-item'; 
+                div.innerHTML = `<span class="sicon">${s.icon}</span><div class="info"><h4>${s.name}</h4><p>${s.day} ${s.monthName} (${gregStr}) - ${s.desc}</p></div>`; 
+                c.appendChild(div); 
+            }); 
+            if (!up.length) c.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem;">${currentLang === 'en' ? 'No upcoming special days.' : 'Yaklaşan özel gün yok.'}</p>`; 
+        }
+        function showFridayPrep() { 
+            const checklist = TRANSLATIONS[currentLang].friday_checklist;
+            document.getElementById('fridayPrepTitle').textContent = TRANSLATIONS[currentLang].friday_prep_title;
+            document.getElementById('fridayPrepBtn').textContent = TRANSLATIONS[currentLang].friday_prep_btn;
+            const checklistEl = document.getElementById('fridayChecklist');
+            checklistEl.innerHTML = checklist.map(item => 
+                `<li><span class="icon">${item.icon}</span><div class="text">${item.text}<span class="source">${item.source}</span></div></li>`
+            ).join('');
+            document.getElementById('fridayPrep').classList.add('visible'); 
+        }
+        function closeFridayPrep() { document.getElementById('fridayPrep').classList.remove('visible'); }
+        function openSettings() { document.getElementById('settingsPanel').classList.add('visible'); }
+        function closeSettings() { document.getElementById('settingsPanel').classList.remove('visible'); }
+        function updateSettings() { state.settings.workDuration = parseInt(document.getElementById('workDuration').value) || 25; state.settings.shortBreak = parseInt(document.getElementById('shortBreak').value) || 5; state.settings.longBreak = parseInt(document.getElementById('longBreak').value) || 15; state.settings.longBreakInterval = parseInt(document.getElementById('longBreakInterval').value) || 4; if (!state.timer.isRunning && !state.timer.isBreak) { state.timer.currentTime = state.settings.workDuration * 60; state.timer.totalTime = state.settings.workDuration * 60; updateTimerDisplay(); } saveState(); }
+        function toggleSetting(el) { el.classList.toggle('active'); const id = el.id; if (id === 'prayerNotifToggle') state.settings.prayerNotifications = el.classList.contains('active'); else if (id === 'soundToggle') state.settings.soundEnabled = el.classList.contains('active'); else if (id === 'fridayToggle') state.settings.fridayReminder = el.classList.contains('active'); saveState(); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('visible'); setTimeout(() => t.classList.remove('visible'), 3000); }
+        function playSound() { try { const ac = new (window.AudioContext || window.webkitAudioContext)(); const o = ac.createOscillator(); const g = ac.createGain(); o.connect(g); g.connect(ac.destination); o.frequency.value = 800; o.type = 'sine'; g.gain.setValueAtTime(0.3, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.01, ac.currentTime + 0.5); o.start(ac.currentTime); o.stop(ac.currentTime + 0.5); } catch (e) {} }
+        (function checkDailyReset() { const lr = localStorage.getItem('lastDailyReset'), td = new Date().toDateString(); if (lr !== td) { state.stats = { todayPomodoros: 0, todayMinutes: 0, completedDeeds: 0 }; state.deeds.forEach(d => d.completed = false); localStorage.setItem('lastDailyReset', td); saveState(); renderDeeds(); updateStats(); } })();
+        setInterval(() => { const lr = localStorage.getItem('lastDailyReset'), td = new Date().toDateString(); if (lr !== td) { state.stats = { todayPomodoros: 0, todayMinutes: 0, completedDeeds: 0 }; state.deeds.forEach(d => d.completed = false); localStorage.setItem('lastDailyReset', td); saveState(); renderDeeds(); updateStats(); } }, 60000);
+
+        // ==================== PREMIUM SYSTEM ====================
+        function initPremium() {
+            state.isPremium = localStorage.getItem('bereket_premium') === 'true';
+            state.currentTheme = localStorage.getItem('bereket_theme') || 'default';
+            const savedCustomDeeds = localStorage.getItem('bereket_custom_deeds');
+            if (savedCustomDeeds) state.customDeeds = JSON.parse(savedCustomDeeds);
+            updatePremiumUI();
+            if (state.currentTheme !== 'default') applyTheme(state.currentTheme);
+        }
+
+        function updatePremiumUI() {
+            // Premium badge
+            document.getElementById('premiumBadge').style.display = state.isPremium ? 'inline-flex' : 'none';
+            // Reklam banner
+            document.getElementById('adBanner').classList.toggle('hidden', state.isPremium);
+            // Premium nav item
+            const premiumNav = document.getElementById('premiumNavItem');
+            if (state.isPremium) {
+                premiumNav.querySelector('.icon').textContent = '⭐';
+                premiumNav.querySelector('span:last-child').textContent = 'Pro';
+            }
+            // Tema kartları
+            document.querySelectorAll('.theme-card').forEach(card => {
+                if (card.dataset.theme !== 'default') {
+                    card.classList.toggle('locked', !state.isPremium);
+                }
+            });
+            // Amel ekleme butonu
+            const addDeedBtn = document.getElementById('addDeedBtn');
+            const customCount = state.customDeeds.length;
+            if (!state.isPremium) {
+                if (customCount >= state.maxFreeCustomDeeds) {
+                    addDeedBtn.classList.add('premium-locked');
+                    addDeedBtn.classList.remove('limited');
+                } else {
+                    addDeedBtn.classList.remove('premium-locked');
+                    addDeedBtn.classList.add('limited');
+                }
+            } else {
+                addDeedBtn.classList.remove('premium-locked', 'limited');
+            }
+        }
+
+        function showPremiumModal() {
+            document.getElementById('premiumModal').classList.add('visible');
+        }
+
+        function closePremiumModal() {
+            document.getElementById('premiumModal').classList.remove('visible');
+        }
+
+        function closePremiumPanel() {
+            document.getElementById('premiumPanel').classList.remove('visible');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelector('.nav-item[data-page="home"]').classList.add('active');
+        }
+
+        function purchasePremium() {
+            // Capacitor'da Google Play Billing ile çalışacak
+            // Demo için simülasyon
+            showToast(t('toast_redirecting'));
+            setTimeout(() => {
+                // Gerçek uygulamada burada Google Play Billing API kullanılacak
+                // Demo: Premium'u aktif et
+                // state.isPremium = true;
+                // localStorage.setItem('bereket_premium', 'true');
+                // updatePremiumUI();
+                // closePremiumModal();
+                showToast(t('toast_billing_required'));
+            }, 1500);
+        }
+
+        function restorePurchases() {
+            showToast(t('toast_checking'));
+            setTimeout(() => {
+                showToast(t('toast_no_purchases'));
+            }, 1500);
+        }
+
+        // ==================== THEME SYSTEM ====================
+        function selectTheme(theme) {
+            if (theme !== 'default' && !state.isPremium) {
+                showPremiumModal();
+                return;
+            }
+            applyTheme(theme);
+        }
+
+        function applyTheme(theme) {
+            document.body.className = theme !== 'default' ? `theme-${theme}` : '';
+            state.currentTheme = theme;
+            localStorage.setItem('bereket_theme', theme);
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.toggle('active', card.dataset.theme === theme);
+            });
+        }
+
+        // ==================== DONATION SYSTEM ====================
+        function initDonation() {
+            document.querySelectorAll('.donation-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.donation-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    state.donationAmount = parseInt(btn.dataset.amount);
+                });
+            });
+            document.getElementById('donateBtn').addEventListener('click', processDonation);
+            // Bağışçı durumu
+            if (localStorage.getItem('bereket_donor') === 'true') {
+                state.isDonor = true;
+                document.getElementById('donorBadge').style.display = 'inline-flex';
+            }
+        }
+
+        function processDonation() {
+            if (state.donationAmount === 0) {
+                showToast(t('select_amount'));
+                return;
+            }
+            const donationMsg = currentLang === 'en' ? 
+                `Redirecting to Google Play for $${state.donationAmount} donation...` : 
+                `${state.donationAmount} TL bağış için Google Play'e yönlendiriliyorsunuz...`;
+            showToast(donationMsg);
+            setTimeout(() => {
+                showToast(t('toast_billing_required'));
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
