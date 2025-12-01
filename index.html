@@ -1155,17 +1155,17 @@
                         // Reverse geocoding ile şehir adı al
                         try {
                             const geoResponse = await fetch(
-                                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&accept-language=tr`,
+                                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=tr`,
                                 { headers: { 'User-Agent': 'BereketTimer/1.0' } }
                             );
                             const geoData = await geoResponse.json();
                             
                             // İlçe ve İl bilgisini al
-                            const district = geoData.address?.district || geoData.address?.town || geoData.address?.county;
-                            const province = geoData.address?.province || geoData.address?.state || geoData.address?.city;
+                            const district = geoData.address?.town || geoData.address?.county || geoData.address?.district;
+                            const province = geoData.address?.province || geoData.address?.state;
                             
                             let cityName = '';
-                            if (district && province && district !== province) {
+                            if (district && province) {
                                 cityName = `${district}, ${province}`;
                             } else if (district) {
                                 cityName = district;
