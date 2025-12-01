@@ -44,7 +44,7 @@
         .lang-btn.active { background: var(--accent-gold); color: var(--primary-dark); font-weight: 600; }
         .lang-btn:hover:not(.active) { color: var(--text-light); }
         .app-container { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 80px; }
-        .header { background: var(--glass-bg); backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border); padding: 16px 20px; position: sticky; top: 0; z-index: 100; }
+        .header { background: var(--glass-bg); backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border); padding: 16px 20px; position: sticky; top: 0; z-index: 100; position: relative; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .app-title { font-family: 'Scheherazade New', serif; font-size: 1.8rem; color: var(--accent-gold); text-shadow: 0 0 20px var(--shadow-gold); }
         .hijri-date { text-align: right; }
@@ -57,9 +57,20 @@
         .prayer-time .name { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 2px; }
         .prayer-time.active .name, .prayer-time.next .name { color: var(--text-light); }
         .prayer-time .time { font-size: 0.8rem; font-weight: 600; }
-        .location-status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; }
+        .location-status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); margin-top: 8px; cursor: pointer; transition: all 0.3s ease; }
+        .location-status:hover { color: var(--accent-gold); }
         .location-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #e74c3c; }
         .location-status.active .dot { background: var(--success); }
+        .location-arrow { font-size: 0.6rem; margin-left: 4px; transition: transform 0.3s ease; }
+        .location-status.open .location-arrow { transform: rotate(180deg); }
+        .city-selector { display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--primary-dark); border: 1px solid var(--glass-border); border-radius: 12px; margin-top: 8px; max-height: 300px; overflow-y: auto; z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        .city-selector.visible { display: block; animation: fadeIn 0.3s ease; }
+        .city-selector-title { padding: 12px 16px; font-size: 0.85rem; color: var(--accent-gold); border-bottom: 1px solid var(--glass-border); font-weight: 600; }
+        .city-list { padding: 8px 0; }
+        .city-item { padding: 12px 16px; font-size: 0.9rem; color: var(--text-light); cursor: pointer; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center; }
+        .city-item:hover { background: rgba(212, 175, 55, 0.1); color: var(--accent-gold); }
+        .city-item.selected { background: rgba(13, 115, 119, 0.2); color: var(--accent-emerald-light); }
+        .city-item .country-flag { font-size: 1.1rem; }
         .main-content { padding: 20px; }
         .timer-section { text-align: center; margin-bottom: 24px; }
         .timer-container { position: relative; width: 280px; height: 280px; margin: 0 auto 20px; }
@@ -245,7 +256,15 @@
                 <div class="prayer-time" data-prayer="maghrib"><div class="name" data-i18n="prayer_maghrib">Akşam</div><div class="time" id="maghribTime">--:--</div></div>
                 <div class="prayer-time" data-prayer="isha"><div class="name" data-i18n="prayer_isha">Yatsı</div><div class="time" id="ishaTime">--:--</div></div>
             </div>
-            <div class="location-status" id="locationStatus"><span class="dot"></span><span id="locationText" data-i18n="getting_location">Konum alınıyor...</span></div>
+            <div class="location-status" id="locationStatus" onclick="toggleCitySelector()">
+                <span class="dot"></span>
+                <span id="locationText" data-i18n="getting_location">Konum alınıyor...</span>
+                <span class="location-arrow">▼</span>
+            </div>
+            <div class="city-selector" id="citySelector">
+                <div class="city-selector-title" data-i18n="select_city">Şehir Seçin</div>
+                <div class="city-list" id="cityList"></div>
+            </div>
         </header>
         <main class="main-content">
             <!-- Reklam Alanı (Ücretsiz kullanıcılar için) -->
@@ -467,6 +486,7 @@
                 prayer_fajr: 'İmsak', prayer_sunrise: 'Güneş', prayer_dhuhr: 'Öğle',
                 prayer_asr: 'İkindi', prayer_maghrib: 'Akşam', prayer_isha: 'Yatsı',
                 getting_location: 'Konum alınıyor...', location_obtained: 'Konum alındı',
+                select_city: 'Şehir Seçin',
                 nav_timer: 'Zamanlayıcı', nav_calendar: 'Takvim', nav_settings: 'Ayarlar',
                 
                 // Timer
@@ -617,6 +637,7 @@
                 prayer_fajr: 'Fajr', prayer_sunrise: 'Sunrise', prayer_dhuhr: 'Dhuhr',
                 prayer_asr: 'Asr', prayer_maghrib: 'Maghrib', prayer_isha: 'Isha',
                 getting_location: 'Getting location...', location_obtained: 'Location obtained',
+                select_city: 'Select City',
                 nav_timer: 'Timer', nav_calendar: 'Calendar', nav_settings: 'Settings',
                 
                 // Timer
@@ -1086,11 +1107,140 @@
             '2026-02-28': { fajr: '05:49', sunrise: '07:13', dhuhr: '13:09', asr: '16:35', maghrib: '19:00', isha: '20:15' }
         };
 
+        // Şehir Listesi - Türkiye ve Dünya
+        const CITIES = [
+            // Türkiye
+            { name: 'İstanbul', country: 'TR', flag: '🇹🇷', lat: 41.0082, lng: 28.9784 },
+            { name: 'Ankara', country: 'TR', flag: '🇹🇷', lat: 39.9334, lng: 32.8597 },
+            { name: 'İzmir', country: 'TR', flag: '🇹🇷', lat: 38.4237, lng: 27.1428 },
+            { name: 'Bursa', country: 'TR', flag: '🇹🇷', lat: 40.1885, lng: 29.0610 },
+            { name: 'Antalya', country: 'TR', flag: '🇹🇷', lat: 36.8969, lng: 30.7133 },
+            { name: 'Adana', country: 'TR', flag: '🇹🇷', lat: 37.0000, lng: 35.3213 },
+            { name: 'Konya', country: 'TR', flag: '🇹🇷', lat: 37.8746, lng: 32.4932 },
+            { name: 'Gaziantep', country: 'TR', flag: '🇹🇷', lat: 37.0662, lng: 37.3833 },
+            { name: 'Diyarbakır', country: 'TR', flag: '🇹🇷', lat: 37.9144, lng: 40.2306 },
+            { name: 'Kayseri', country: 'TR', flag: '🇹🇷', lat: 38.7312, lng: 35.4787 },
+            { name: 'Trabzon', country: 'TR', flag: '🇹🇷', lat: 41.0027, lng: 39.7168 },
+            { name: 'Samsun', country: 'TR', flag: '🇹🇷', lat: 41.2867, lng: 36.3300 },
+            { name: 'Erzurum', country: 'TR', flag: '🇹🇷', lat: 39.9334, lng: 41.2769 },
+            { name: 'Van', country: 'TR', flag: '🇹🇷', lat: 38.5012, lng: 43.3730 },
+            { name: 'Malatya', country: 'TR', flag: '🇹🇷', lat: 38.3552, lng: 38.3095 },
+            { name: 'Mersin', country: 'TR', flag: '🇹🇷', lat: 36.8121, lng: 34.6415 },
+            { name: 'Eskişehir', country: 'TR', flag: '🇹🇷', lat: 39.7767, lng: 30.5206 },
+            { name: 'Denizli', country: 'TR', flag: '🇹🇷', lat: 37.7765, lng: 29.0864 },
+            { name: 'Şanlıurfa', country: 'TR', flag: '🇹🇷', lat: 37.1591, lng: 38.7969 },
+            { name: 'Hatay', country: 'TR', flag: '🇹🇷', lat: 36.4018, lng: 36.3498 },
+            // Avrupa
+            { name: 'Berlin', country: 'DE', flag: '🇩🇪', lat: 52.5200, lng: 13.4050 },
+            { name: 'Köln', country: 'DE', flag: '🇩🇪', lat: 50.9375, lng: 6.9603 },
+            { name: 'Münih', country: 'DE', flag: '🇩🇪', lat: 48.1351, lng: 11.5820 },
+            { name: 'Paris', country: 'FR', flag: '🇫🇷', lat: 48.8566, lng: 2.3522 },
+            { name: 'Londra', country: 'GB', flag: '🇬🇧', lat: 51.5074, lng: -0.1278 },
+            { name: 'Amsterdam', country: 'NL', flag: '🇳🇱', lat: 52.3676, lng: 4.9041 },
+            { name: 'Brüksel', country: 'BE', flag: '🇧🇪', lat: 50.8503, lng: 4.3517 },
+            { name: 'Viyana', country: 'AT', flag: '🇦🇹', lat: 48.2082, lng: 16.3738 },
+            { name: 'Stockholm', country: 'SE', flag: '🇸🇪', lat: 59.3293, lng: 18.0686 },
+            { name: 'Oslo', country: 'NO', flag: '🇳🇴', lat: 59.9139, lng: 10.7522 },
+            // Amerika
+            { name: 'New York', country: 'US', flag: '🇺🇸', lat: 40.7128, lng: -74.0060 },
+            { name: 'Los Angeles', country: 'US', flag: '🇺🇸', lat: 34.0522, lng: -118.2437 },
+            { name: 'Chicago', country: 'US', flag: '🇺🇸', lat: 41.8781, lng: -87.6298 },
+            { name: 'Toronto', country: 'CA', flag: '🇨🇦', lat: 43.6532, lng: -79.3832 },
+            // Ortadoğu
+            { name: 'Mekke', country: 'SA', flag: '🇸🇦', lat: 21.3891, lng: 39.8579 },
+            { name: 'Medine', country: 'SA', flag: '🇸🇦', lat: 24.5247, lng: 39.5692 },
+            { name: 'Dubai', country: 'AE', flag: '🇦🇪', lat: 25.2048, lng: 55.2708 },
+            { name: 'Kahire', country: 'EG', flag: '🇪🇬', lat: 30.0444, lng: 31.2357 },
+            { name: 'Kudüs', country: 'PS', flag: '🇵🇸', lat: 31.7683, lng: 35.2137 },
+            { name: 'Bağdat', country: 'IQ', flag: '🇮🇶', lat: 33.3152, lng: 44.3661 },
+            // Asya
+            { name: 'Kuala Lumpur', country: 'MY', flag: '🇲🇾', lat: 3.1390, lng: 101.6869 },
+            { name: 'Cakarta', country: 'ID', flag: '🇮🇩', lat: -6.2088, lng: 106.8456 },
+            { name: 'Bakü', country: 'AZ', flag: '🇦🇿', lat: 40.4093, lng: 49.8671 },
+            // Avustralya
+            { name: 'Sydney', country: 'AU', flag: '🇦🇺', lat: -33.8688, lng: 151.2093 },
+            { name: 'Melbourne', country: 'AU', flag: '🇦🇺', lat: -37.8136, lng: 144.9631 }
+        ];
+
+        function toggleCitySelector() {
+            const selector = document.getElementById('citySelector');
+            const status = document.getElementById('locationStatus');
+            
+            if (selector.classList.contains('visible')) {
+                selector.classList.remove('visible');
+                status.classList.remove('open');
+            } else {
+                renderCityList();
+                selector.classList.add('visible');
+                status.classList.add('open');
+            }
+        }
+
+        function renderCityList() {
+            const list = document.getElementById('cityList');
+            const currentCity = state.location.city;
+            
+            list.innerHTML = CITIES.map(city => `
+                <div class="city-item ${city.name === currentCity ? 'selected' : ''}" onclick="selectCity('${city.name}')">
+                    <span>${city.name}</span>
+                    <span class="country-flag">${city.flag}</span>
+                </div>
+            `).join('');
+        }
+
+        function selectCity(cityName) {
+            const city = CITIES.find(c => c.name === cityName);
+            if (!city) return;
+            
+            state.location.city = city.name;
+            state.location.latitude = city.lat;
+            state.location.longitude = city.lng;
+            
+            // UI güncelle
+            document.getElementById('locationText').textContent = city.name;
+            document.getElementById('locationStatus').classList.add('active');
+            
+            // Şehir seçiciyi kapat
+            document.getElementById('citySelector').classList.remove('visible');
+            document.getElementById('locationStatus').classList.remove('open');
+            
+            // Namaz vakitlerini hesapla (astronomik hesaplama)
+            calculatePrayerTimesLocally(city.lat, city.lng);
+            updatePrayerTimesUI();
+            highlightCurrentPrayer();
+            
+            // Seçimi kaydet
+            try {
+                localStorage.setItem('selectedCity', cityName);
+            } catch(e) {}
+            
+            showToast(currentLang === 'en' ? `${city.name} prayer times loaded` : `${city.name} namaz vakitleri yüklendi`);
+        }
+
+        function loadSavedCity() {
+            try {
+                const savedCity = localStorage.getItem('selectedCity');
+                if (savedCity) {
+                    const city = CITIES.find(c => c.name === savedCity);
+                    if (city) {
+                        selectCity(savedCity);
+                        return true;
+                    }
+                }
+            } catch(e) {}
+            return false;
+        }
+
         async function getLocation() {
             const locationText = document.getElementById('locationText');
             const locationStatus = document.getElementById('locationStatus');
             
-            // Yerel verilerle başla (İstanbul)
+            // Önce kayıtlı şehir var mı kontrol et
+            if (loadSavedCity()) {
+                return;
+            }
+            
+            // Yoksa İstanbul ile başla
             state.location.latitude = 41.0082;
             state.location.longitude = 28.9784;
             state.location.city = 'İstanbul';
@@ -1216,7 +1366,17 @@
         function highlightCurrentPrayer() { const now = new Date(), cm = now.getHours() * 60 + now.getMinutes(); const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha']; let cp = 'isha', np = 'fajr'; for (let i = prayers.length - 1; i >= 0; i--) { const t = state.prayerTimes[prayers[i]]; if (t) { const [h, m] = t.split(':').map(Number); if (cm >= h * 60 + m) { cp = prayers[i]; np = prayers[(i + 1) % prayers.length]; break; } } } document.querySelectorAll('.prayer-time').forEach(el => { el.classList.remove('active', 'next'); if (el.dataset.prayer === cp) el.classList.add('active'); if (el.dataset.prayer === np) el.classList.add('next'); }); }
         function checkPrayerTime() { const now = new Date(), ct = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`; const msgs = { fajr: { title: 'İmsak Vakti', msg: 'Sabah namazını cemaatle kılmak gecenin yarısını ibadetle geçirmek gibidir.' }, dhuhr: { title: 'Öğle Namazı Vakti', msg: 'Cemaatle namaz 27 kat daha faziletlidir.' }, asr: { title: 'İkindi Namazı Vakti', msg: 'Kim ikindi namazını terk ederse ameli boşa gider.' }, maghrib: { title: 'Akşam Namazı Vakti', msg: 'Akşam namazını geciktirmeden kılalım.' }, isha: { title: 'Yatsı Namazı Vakti', msg: 'Yatsı namazını cemaatle kılan gecenin yarısını ibadetle geçirmiş gibidir.' } }; for (const p of ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']) { if (state.prayerTimes[p] === ct && state.settings.prayerNotifications) { document.getElementById('prayerAlertTitle').textContent = msgs[p].title; document.getElementById('prayerAlertMessage').textContent = msgs[p].msg; document.getElementById('prayerAlert').classList.add('visible'); if (state.timer.isRunning) pauseTimer(); if (state.settings.soundEnabled) playSound(); break; } } highlightCurrentPrayer(); }
         function closePrayerAlert() { document.getElementById('prayerAlert').classList.remove('visible'); }
-        function setupEventListeners() { document.getElementById('playPauseBtn').addEventListener('click', toggleTimer); document.getElementById('resetBtn').addEventListener('click', resetTimer); document.getElementById('skipBtn').addEventListener('click', skipTimer); document.getElementById('addDeedBtn').addEventListener('click', () => { if (!state.isPremium && state.customDeeds.length >= state.maxFreeCustomDeeds) { showPremiumModal(); return; } document.getElementById('addDeedModal').classList.add('visible'); }); document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', function() { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); this.classList.add('active'); const page = this.dataset.page; if (page === 'settings') openSettings(); else if (page === 'calendar') openCalendar(); else if (page === 'premium') { if (state.isPremium) { showToast('Zaten Premium üyesiniz! ⭐'); } else { document.getElementById('premiumPanel').classList.add('visible'); } } else { closeSettings(); closeCalendar(); closePremiumPanel(); } }); }); ['workDuration', 'shortBreak', 'longBreak', 'longBreakInterval'].forEach(id => document.getElementById(id).addEventListener('change', updateSettings)); }
+        function setupEventListeners() { document.getElementById('playPauseBtn').addEventListener('click', toggleTimer); document.getElementById('resetBtn').addEventListener('click', resetTimer); document.getElementById('skipBtn').addEventListener('click', skipTimer); document.getElementById('addDeedBtn').addEventListener('click', () => { if (!state.isPremium && state.customDeeds.length >= state.maxFreeCustomDeeds) { showPremiumModal(); return; } document.getElementById('addDeedModal').classList.add('visible'); }); document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', function() { document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active')); this.classList.add('active'); const page = this.dataset.page; if (page === 'settings') openSettings(); else if (page === 'calendar') openCalendar(); else if (page === 'premium') { if (state.isPremium) { showToast('Zaten Premium üyesiniz! ⭐'); } else { document.getElementById('premiumPanel').classList.add('visible'); } } else { closeSettings(); closeCalendar(); closePremiumPanel(); } }); }); ['workDuration', 'shortBreak', 'longBreak', 'longBreakInterval'].forEach(id => document.getElementById(id).addEventListener('change', updateSettings)); 
+            // Şehir seçici dışına tıklanınca kapat
+            document.addEventListener('click', function(e) {
+                const selector = document.getElementById('citySelector');
+                const status = document.getElementById('locationStatus');
+                if (!status.contains(e.target) && !selector.contains(e.target)) {
+                    selector.classList.remove('visible');
+                    status.classList.remove('open');
+                }
+            });
+        }
         function toggleTimer() { state.timer.isRunning ? pauseTimer() : startTimer(); }
         function startTimer() { state.timer.isRunning = true; document.getElementById('playPauseBtn').innerHTML = '⏸'; state.timer.interval = setInterval(() => { state.timer.currentTime--; updateTimerDisplay(); if (state.timer.currentTime <= 0) completeSession(); }, 1000); }
         function pauseTimer() { state.timer.isRunning = false; document.getElementById('playPauseBtn').innerHTML = '▶'; clearInterval(state.timer.interval); }
