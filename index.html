@@ -1131,29 +1131,32 @@
 
         async function fetchPrayerTimesFromAPI(lat, lng) {
             const locationText = document.getElementById('locationText');
+            const CORS_PROXY = 'https://corsproxy.io/?';
             
             try {
                 // Önce yakın yeri bul (şehir/ilçe adı için)
-                const placeResponse = await fetch(
-                    `https://vakit.vercel.app/api/nearByPlaces?lat=${lat}&lng=${lng}&lang=${currentLang === 'en' ? 'en' : 'tr'}`
-                );
+                const placeUrl = `https://vakit.vercel.app/api/nearByPlaces?lat=${lat}&lng=${lng}&lang=${currentLang === 'en' ? 'en' : 'tr'}`;
+                const placeResponse = await fetch(CORS_PROXY + encodeURIComponent(placeUrl));
                 const placeData = await placeResponse.json();
+                
+                let placeName = currentLang === 'en' ? 'Your Location' : 'Konumunuz';
                 
                 if (placeData && placeData.length > 0) {
                     const place = placeData[0];
-                    state.location.city = place.name || place.city || 'Konum';
+                    placeName = place.name || place.city || placeName;
+                    state.location.city = placeName;
                     state.location.placeId = place.id;
-                    locationText.textContent = state.location.city;
                 }
+                
+                locationText.textContent = placeName;
                 
                 // Namaz vakitlerini al
                 const today = new Date();
                 const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                 const timezoneOffset = -today.getTimezoneOffset();
                 
-                const timesResponse = await fetch(
-                    `https://vakit.vercel.app/api/timesForGPS?lat=${lat}&lng=${lng}&date=${dateStr}&days=1&timezoneOffset=${timezoneOffset}&calculationMethod=Turkey`
-                );
+                const timesUrl = `https://vakit.vercel.app/api/timesForGPS?lat=${lat}&lng=${lng}&date=${dateStr}&days=1&timezoneOffset=${timezoneOffset}&calculationMethod=Turkey`;
+                const timesResponse = await fetch(CORS_PROXY + encodeURIComponent(timesUrl));
                 const timesData = await timesResponse.json();
                 
                 if (timesData && timesData.times && timesData.times.length > 0) {
