@@ -7,9 +7,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Bereket Timer - Islamic Pomodoro</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-512.png">
-    <link rel="icon" type="image/png" href="icon-512.png">
+    <link rel="manifest" href="/bereket-timer/manifest.json">
+    <link rel="apple-touch-icon" href="/bereket-timer/icon-512.png">
+    <link rel="icon" type="image/png" href="/bereket-timer/icon-512.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Sans+Arabic:wght@400;600&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet">
@@ -1718,7 +1718,7 @@
         // Service Worker Kayıt
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('/bereket-timer/sw.js')
                     .then(reg => console.log('Service Worker kayıtlı'))
                     .catch(err => console.log('SW kayıt hatası:', err));
             });

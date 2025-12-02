@@ -2,24 +2,25 @@
   "name": "Bereket Timer - İslami Pomodoro",
   "short_name": "Bereket Timer",
   "description": "Namaz vakitleri, Hicri takvim ve Pomodoro timer ile bereketli günler.",
-  "start_url": "/",
+  "start_url": "/bereket-timer/",
+  "scope": "/bereket-timer/",
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
   "orientation": "portrait",
-  "scope": "/",
+  "id": "/bereket-timer/",
   "icons": [
     {
-      "src": "icon-512.png",
+      "src": "/bereket-timer/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "/bereket-timer/icon-512.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
   "categories": ["lifestyle", "productivity"],
