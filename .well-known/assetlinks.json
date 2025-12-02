@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.insirahapp.berekettimer",
+        "sha256_cert_fingerprints": ["C7:1E:A9:AA:37:19:70:15:57:3A:5D:44:6D:3C:93:9B:4C:A6:E6:CC:3C:AB:A6:71:62:17:37:5E:4B:77:F6:B5"]
+      }
+    }]
